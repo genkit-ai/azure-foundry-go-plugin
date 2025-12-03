@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1](https://github.com/xavidop/genkit-azure-foundry-go/compare/v1.1.0...v1.1.1) (2025-12-03)
+
+### 🐛 Bug Fixes
+
+* added copyright ([3e7a97e](https://github.com/xavidop/genkit-azure-foundry-go/commit/3e7a97edcb265b493b9aca40da4e0dd8e21d15e1))
+
 ## [1.1.0](https://github.com/xavidop/genkit-azure-foundry-go/compare/v1.0.3...v1.1.0) (2025-12-03)
 
 ### 🚀 Features

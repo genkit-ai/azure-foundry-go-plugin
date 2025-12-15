@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4](https://github.com/xavidop/genkit-azure-foundry-go/compare/v1.1.3...v1.1.4) (2025-12-15)
+
+### ⚙️ Continuous Integration
+
+* **deps:** bump actions/cache from 4 to 5 ([#6](https://github.com/xavidop/genkit-azure-foundry-go/issues/6)) ([292ae44](https://github.com/xavidop/genkit-azure-foundry-go/commit/292ae44ae51dbe7d378865da2a112308a25ad909))
+
 ## [1.1.3](https://github.com/xavidop/genkit-azure-foundry-go/compare/v1.1.2...v1.1.3) (2025-12-08)
 
 ### ⚙️ Continuous Integration

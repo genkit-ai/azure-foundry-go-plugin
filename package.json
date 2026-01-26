@@ -4,7 +4,7 @@
   "description": "Azure Foundry Plugin for Genkit Go",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xavidop/genkit-azure-foundry-go.git"
+    "url": "https://github.com/genkit-ai/azure-foundry-go-plugin.git"
   },
   "license": "Apache-2.0",
   "author": "Xavier Portilla Edo <hello@xavidop.me>",

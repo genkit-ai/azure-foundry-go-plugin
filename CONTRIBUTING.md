@@ -38,7 +38,7 @@ This project and everyone participating in it is governed by our commitment to c
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/xavidop/genkit-azure-foundry-go.git
+   git clone https://github.com/genkit-ai/azure-foundry-go-plugin.git
    cd genkit-azure-foundry-go
    ```
 

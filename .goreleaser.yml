@@ -128,8 +128,8 @@ changelog:
 
 release:
   github:
-    owner: xavidop
-    name: genkit-azure-foundry-go
+    owner: genkit-ai
+    name: azure-foundry-go-plugin
   name_template: "{{.ProjectName}} v{{.Version}}"
   header: |
     ## Azure Foundry Plugin for Genkit Go {{.Version}}
@@ -146,7 +146,7 @@ release:
     
     ### What's Changed
   footer: |
-    **Full Changelog**: https://github.com/xavidop/genkit-azure-foundry-go/compare/{{ .PreviousTag }}...{{ .Tag }}
+    **Full Changelog**: https://github.com/genkit-ai/azure-foundry-go-plugin/compare/{{ .PreviousTag }}...{{ .Tag }}
     
     ## Supported Models
     
@@ -158,8 +158,8 @@ release:
     
     ## Documentation
     
-    - [README](https://github.com/xavidop/genkit-azure-foundry-go/blob/{{.Tag}}/README.md)
-    - [Examples](https://github.com/xavidop/genkit-azure-foundry-go/tree/{{.Tag}}/examples)
+    - [README](https://github.com/genkit-ai/azure-foundry-go-plugin/blob/{{.Tag}}/README.md)
+    - [Examples](https://github.com/genkit-ai/azure-foundry-go-plugin/tree/{{.Tag}}/examples)
     - [Azure Foundry Documentation](https://learn.microsoft.com/en-us/azure/developer/go/azure-ai-for-go-developers)
   draft: false
   prerelease: auto

@@ -14,6 +14,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+// test
+
 // Package azureaifoundry provides a comprehensive Azure AI Foundry plugin for Genkit Go.
 // This plugin supports text generation and chat capabilities using Azure OpenAI and other models
 // available through Azure AI Foundry.

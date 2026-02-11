@@ -832,23 +832,18 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 	}
 	if config.reasoningEffort != nil {
 		// https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/reasoning?view=foundry-classic&tabs=REST%2Cgpt-5
-		switch *config.reasoningEffort {
-		case "low":
-			params.ReasoningEffort = openai.ReasoningEffortLow
-		case "medium":
-			params.ReasoningEffort = openai.ReasoningEffortMedium
-		case "high":
-			params.ReasoningEffort = openai.ReasoningEffortHigh
-		case "none":
-			params.ReasoningEffort = openai.ReasoningEffortNone
-		case "minimal":
-			params.ReasoningEffort = openai.ReasoningEffortMinimal
-		case "xhigh":
-			params.ReasoningEffort = openai.ReasoningEffortXhigh
-		default:
-			// Invalid value, ignore and use default
-
+		reasoningEffortMap := map[string]openai.ReasoningEffort{
+			"low":     openai.ReasoningEffortLow,
+			"medium":  openai.ReasoningEffortMedium,
+			"high":    openai.ReasoningEffortHigh,
+			"none":    openai.ReasoningEffortNone,
+			"minimal": openai.ReasoningEffortMinimal,
+			"xhigh":   openai.ReasoningEffortXhigh,
 		}
+		if effort, ok := reasoningEffortMap[*config.reasoningEffort]; ok {
+			params.ReasoningEffort = effort
+		}
+		// Invalid values are ignored, maintaining the default behavior.
 	}
 	// Handle tools
 	if len(input.Tools) > 0 {

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.1.6...v1.2.0) (2026-02-11)
+
+### 🚀 Features
+
+* add reasoning effort configuration to model request ([#20](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/20)) ([53af95f](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/53af95f8fd997bd2d633f2e969455397880195f0))
+* force release ([758a741](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/758a741b8b4ad8513ea88915e903ae0bb8ab212f))
+
+### 🐛 Bug Fixes
+
+* added licencese ([b1b411c](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/b1b411cd6dedeec42b3cb0f90162b7ca4cd48e8f))
+
+### ⚙️ Continuous Integration
+
+* **deps:** bump actions/checkout from 4 to 6 ([#17](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/17)) ([f7fb6d6](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/f7fb6d6bd69affd6e1dc01a724ed0bc72cc5345a))
+
 ## [1.1.6](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.1.5...v1.1.6) (2026-01-27)
 
 ### 🐛 Bug Fixes

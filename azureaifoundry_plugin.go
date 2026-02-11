@@ -772,10 +772,11 @@ func (a *AzureAIFoundry) convertMessagesToOpenAI(messages []*ai.Message) []opena
 
 // extractConfig extracts and validates configuration values from a ModelRequest
 type modelConfig struct {
-	maxTokens   *int64
-	temperature *float64
-	topP        *float64
-	toolChoice  string
+	maxTokens       *int64
+	temperature     *float64
+	topP            *float64
+	toolChoice      string
+	reasoningEffort *string // "none", "minimal", "low", "medium", "high", "xhigh"
 }
 
 // extractConfigFromRequest safely extracts configuration values from request
@@ -790,7 +791,9 @@ func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *model
 	if !ok {
 		return config
 	}
-
+	if reasoningEffort, ok := configMap["reasoningEffort"].(string); ok {
+		config.reasoningEffort = &reasoningEffort
+	}
 	if maxTokens, ok := configMap["maxOutputTokens"].(int); ok {
 		val := int64(maxTokens)
 		config.maxTokens = &val
@@ -828,7 +831,21 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 	if config.topP != nil {
 		params.TopP = openai.Float(*config.topP)
 	}
-
+	if config.reasoningEffort != nil {
+		// https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/reasoning?view=foundry-classic&tabs=REST%2Cgpt-5
+		reasoningEffortMap := map[string]openai.ReasoningEffort{
+			"low":     openai.ReasoningEffortLow,
+			"medium":  openai.ReasoningEffortMedium,
+			"high":    openai.ReasoningEffortHigh,
+			"none":    openai.ReasoningEffortNone,
+			"minimal": openai.ReasoningEffortMinimal,
+			"xhigh":   openai.ReasoningEffortXhigh,
+		}
+		if effort, ok := reasoningEffortMap[*config.reasoningEffort]; ok {
+			params.ReasoningEffort = effort
+		}
+		// Invalid values are ignored, maintaining the default behavior.
+	}
 	// Handle tools
 	if len(input.Tools) > 0 {
 		var tools []openai.ChatCompletionToolUnionParam

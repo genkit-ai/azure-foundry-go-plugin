@@ -276,7 +276,9 @@ func (a *AzureAIFoundry) generateSpeechInternal(ctx context.Context, modelName s
 	params := openai.AudioSpeechNewParams{
 		Model: openai.SpeechModel(modelName),
 		Input: req.Input,
-		Voice: openai.AudioSpeechNewParamsVoice(req.Voice),
+		Voice: openai.AudioSpeechNewParamsVoiceUnion{
+			OfString: openai.String(req.Voice),
+		},
 	}
 
 	if req.ResponseFormat != "" {

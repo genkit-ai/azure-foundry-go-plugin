@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.2.1...v1.3.0) (2026-04-04)
+
+### 🚀 Features
+
+* align workflow Go versions with go 1.25 requirement ([#1](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/1)) ([#38](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/38)) ([8e599c5](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/8e599c5eb4868b64caff0c0f47ec8e899acb5c51))
+* upgrade dependencies to support latest openai release ([#37](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/37)) ([0413568](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/0413568c6245e86593b819d432987e8fa49173e8))
+
+### 🐛 Bug Fixes
+
+* release ([5c8266c](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/5c8266cdc10db39037d9105258b6a63b902f8a73))
+
 ## [1.2.1](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.2.0...v1.2.1) (2026-02-23)
 
 ### ⚙️ Continuous Integration

@@ -3,7 +3,7 @@ module github.com/xavidop/genkit-azure-foundry-go
 go 1.25.0
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/firebase/genkit/go v1.6.1
 	github.com/openai/openai-go/v3 v3.32.0
@@ -40,9 +40,9 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
-	golang.org/x/crypto v0.49.0 // indirect
-	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/text v0.36.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

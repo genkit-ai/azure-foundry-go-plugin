@@ -384,7 +384,7 @@ func (a *AzureAIFoundry) transcribeAudioInternal(ctx context.Context, modelName 
 // inferModelCapabilities infers model capabilities based on model info.
 func (a *AzureAIFoundry) inferModelCapabilities(modelName string, supportsMedia bool) *ai.ModelInfo {
 	// Detect tool support based on model name
-	supportsTools := strings.Contains(strings.ToLower(modelName), "gpt")
+	supportsTools := supportsToolCalling(modelName)
 	return &ai.ModelInfo{
 		Label: modelName,
 		Supports: &ai.ModelSupports{
@@ -394,6 +394,18 @@ func (a *AzureAIFoundry) inferModelCapabilities(modelName string, supportsMedia 
 			Media:      supportsMedia,
 		},
 	}
+}
+
+func supportsToolCalling(modelName string) bool {
+	modelLower := strings.ToLower(modelName)
+	if strings.Contains(modelLower, "tts") ||
+		strings.Contains(modelLower, "transcribe") ||
+		strings.Contains(modelLower, "image") {
+		return false
+	}
+
+	return strings.Contains(modelLower, "gpt") ||
+		strings.Contains(modelLower, "kimi")
 }
 
 // generateText handles text generation using Azure OpenAI

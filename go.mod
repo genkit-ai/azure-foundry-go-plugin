@@ -6,7 +6,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
 	github.com/firebase/genkit/go v1.9.0
-	github.com/openai/openai-go/v3 v3.39.0
+	github.com/openai/openai-go/v3 v3.41.0
 )
 
 require (

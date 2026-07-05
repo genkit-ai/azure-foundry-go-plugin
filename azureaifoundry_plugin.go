@@ -38,6 +38,7 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/azure"
 	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/packages/respjson"
 )
 
 const provider = "azureaifoundry"
@@ -734,7 +735,7 @@ func (a *AzureAIFoundry) convertMessagesToOpenAI(messages []*ai.Message) []opena
 					}
 					toolCalls = append(toolCalls, openai.ChatCompletionMessageToolCallUnionParam{
 						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
-							ID:   fmt.Sprintf("call_%s", toolReq.Name),
+							ID:   toolCallID(toolReq.Ref, toolReq.Name),
 							Type: "function",
 							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
 								Name:      toolReq.Name,
@@ -773,7 +774,7 @@ func (a *AzureAIFoundry) convertMessagesToOpenAI(messages []*ai.Message) []opena
 							Content: openai.ChatCompletionToolMessageParamContentUnion{
 								OfString: openai.String(string(outputJSON)),
 							},
-							ToolCallID: fmt.Sprintf("call_%s", toolResp.Name),
+							ToolCallID: toolCallID(toolResp.Ref, toolResp.Name),
 						},
 					})
 				}
@@ -917,6 +918,12 @@ type toolCallAccumulator struct {
 
 // generateTextStream handles streaming text generation
 func (a *AzureAIFoundry) generateTextStream(ctx context.Context, params openai.ChatCompletionNewParams, originalInput *ai.ModelRequest, cb func(context.Context, *ai.ModelResponseChunk) error) (*ai.ModelResponse, error) {
+	// Request per-request token usage on the terminal chunk (choices will be empty
+	// on that chunk). Without this, streaming responses carry no usage at all.
+	params.StreamOptions = openai.ChatCompletionStreamOptionsParam{
+		IncludeUsage: openai.Bool(true),
+	}
+
 	// Note: Stream parameter is automatically set by NewStreaming
 	stream := a.client.Chat.Completions.NewStreaming(ctx, params)
 	defer func() {
@@ -927,12 +934,48 @@ func (a *AzureAIFoundry) generateTextStream(ctx context.Context, params openai.C
 	}()
 
 	var fullText strings.Builder
+	var reasoningText strings.Builder
+	var finishReason string
+	var usage openai.CompletionUsage
+	var haveUsage bool
 	toolCallsMap := make(map[int]*toolCallAccumulator)
 
 	for stream.Next() {
 		chunk := stream.Current()
+
+		// The terminal usage chunk (requested via StreamOptions) carries usage but
+		// an empty Choices slice, so read it independently of the choices below.
+		if chunk.Usage.TotalTokens > 0 {
+			usage = chunk.Usage
+			haveUsage = true
+		}
+
 		if len(chunk.Choices) > 0 {
 			delta := chunk.Choices[0].Delta
+
+			// Capture the real finish reason (e.g. content_filter, length, tool_calls)
+			// so Azure content filtering / truncation is distinguishable from a clean stop.
+			if chunk.Choices[0].FinishReason != "" {
+				finishReason = chunk.Choices[0].FinishReason
+			}
+
+			// Handle reasoning streaming. reasoning_content is a non-standard field
+			// (Kimi, DeepSeek-R1, ...) not exposed by the typed delta, so read it from
+			// the raw JSON extra fields.
+			if reasoningDelta := extractReasoningContent(delta.JSON.ExtraFields); reasoningDelta != "" {
+				reasoningText.WriteString(reasoningDelta)
+
+				if cb != nil {
+					chunkResponse := &ai.ModelResponseChunk{
+						Content: []*ai.Part{
+							ai.NewReasoningPart(reasoningDelta, nil),
+						},
+					}
+					if err := cb(ctx, chunkResponse); err != nil {
+						return nil, fmt.Errorf("streaming callback error: %w", err)
+					}
+				}
+			}
 
 			// Handle content streaming
 			if delta.Content != "" {
@@ -975,8 +1018,11 @@ func (a *AzureAIFoundry) generateTextStream(ctx context.Context, params openai.C
 		return nil, fmt.Errorf("stream error: %w", err)
 	}
 
-	// Build final message content
+	// Build final message content: reasoning first, then text, then tool calls.
 	var content []*ai.Part
+	if reasoningText.Len() > 0 {
+		content = append(content, ai.NewReasoningPart(reasoningText.String(), nil))
+	}
 	if fullText.Len() > 0 {
 		content = append(content, ai.NewTextPart(fullText.String()))
 	}
@@ -988,13 +1034,17 @@ func (a *AzureAIFoundry) generateTextStream(ctx context.Context, params openai.C
 	}
 	content = append(content, toolParts...)
 
-	return &ai.ModelResponse{
+	response := &ai.ModelResponse{
 		Message: &ai.Message{
 			Role:    ai.RoleModel,
 			Content: content,
 		},
-		FinishReason: ai.FinishReasonStop,
-	}, nil
+		FinishReason: a.convertFinishReason(finishReason),
+	}
+	if haveUsage {
+		response.Usage = convertUsage(usage)
+	}
+	return response, nil
 }
 
 // convertToolCallsToParts converts accumulated tool calls to AI parts
@@ -1016,6 +1066,7 @@ func (a *AzureAIFoundry) convertToolCallsToParts(toolCallsMap map[int]*toolCallA
 		parts = append(parts, ai.NewToolRequestPart(&ai.ToolRequest{
 			Name:  toolCall.name,
 			Input: args,
+			Ref:   toolCall.id,
 		}))
 	}
 
@@ -1037,6 +1088,12 @@ func (a *AzureAIFoundry) convertResponse(resp *openai.ChatCompletion, originalIn
 	choice := resp.Choices[0]
 	var content []*ai.Part
 
+	// Reasoning first. reasoning_content is a non-standard field (Kimi, DeepSeek-R1,
+	// ...) not exposed by the typed message, so read it from the raw JSON extra fields.
+	if reasoning := extractReasoningContent(choice.Message.JSON.ExtraFields); reasoning != "" {
+		content = append(content, ai.NewReasoningPart(reasoning, nil))
+	}
+
 	if choice.Message.Content != "" {
 		content = append(content, ai.NewTextPart(choice.Message.Content))
 	}
@@ -1054,18 +1111,10 @@ func (a *AzureAIFoundry) convertResponse(resp *openai.ChatCompletion, originalIn
 				content = append(content, ai.NewToolRequestPart(&ai.ToolRequest{
 					Name:  functionToolCall.Function.Name,
 					Input: args,
+					Ref:   functionToolCall.ID,
 				}))
 			}
 		}
-	}
-
-	finishReason := a.convertFinishReason(choice.FinishReason)
-
-	usage := &ai.GenerationUsage{}
-	if resp.Usage.PromptTokens > 0 {
-		usage.InputTokens = int(resp.Usage.PromptTokens)
-		usage.OutputTokens = int(resp.Usage.CompletionTokens)
-		usage.TotalTokens = int(resp.Usage.TotalTokens)
 	}
 
 	return &ai.ModelResponse{
@@ -1073,15 +1122,17 @@ func (a *AzureAIFoundry) convertResponse(resp *openai.ChatCompletion, originalIn
 			Role:    ai.RoleModel,
 			Content: content,
 		},
-		FinishReason: finishReason,
-		Usage:        usage,
+		FinishReason: a.convertFinishReason(choice.FinishReason),
+		Usage:        convertUsage(resp.Usage),
 	}
 }
 
 // convertFinishReason converts OpenAI finish reason to Genkit format
 func (a *AzureAIFoundry) convertFinishReason(reason string) ai.FinishReason {
 	switch reason {
-	case "stop":
+	case "stop", "":
+		// An empty reason means the stream ended without a per-choice finish reason;
+		// treat it as a clean stop.
 		return ai.FinishReasonStop
 	case "length":
 		return ai.FinishReasonLength
@@ -1092,6 +1143,54 @@ func (a *AzureAIFoundry) convertFinishReason(reason string) ai.FinishReason {
 	default:
 		return ai.FinishReasonOther
 	}
+}
+
+// convertUsage converts an OpenAI usage payload to Genkit's usage model, including
+// reasoning ("thoughts") tokens which reasoning models report separately.
+func convertUsage(u openai.CompletionUsage) *ai.GenerationUsage {
+	usage := &ai.GenerationUsage{
+		InputTokens:  int(u.PromptTokens),
+		OutputTokens: int(u.CompletionTokens),
+		TotalTokens:  int(u.TotalTokens),
+	}
+	if reasoning := u.CompletionTokensDetails.ReasoningTokens; reasoning > 0 {
+		usage.ThoughtsTokens = int(reasoning)
+	}
+	return usage
+}
+
+// extractReasoningContent reads the non-standard `reasoning_content` field from a
+// response's raw JSON extra fields. openai-go v3 does not model it on the typed
+// message/delta structs, so reasoning models surface it here. Note that Field.Valid()
+// is always false for extra fields (they are never type-checked), so presence is
+// determined from Raw() instead. Returns "" when the field is absent or cannot be decoded.
+func extractReasoningContent(fields map[string]respjson.Field) string {
+	field, ok := fields["reasoning_content"]
+	if !ok {
+		return ""
+	}
+	// Raw() is "" when the field was omitted and the literal "null" for a JSON null;
+	// otherwise it is the raw JSON value (a quoted string), which we decode.
+	raw := field.Raw()
+	if raw == "" || raw == "null" {
+		return ""
+	}
+	var content string
+	if err := json.Unmarshal([]byte(raw), &content); err != nil {
+		return ""
+	}
+	return content
+}
+
+// toolCallID returns the provider-issued tool call reference when available, falling
+// back to a name-derived id for transcripts that predate real-id round-tripping.
+// Using the real ref keeps assistant tool_calls and their tool results matched even
+// when the same tool is called more than once in a single turn.
+func toolCallID(ref, name string) string {
+	if ref != "" {
+		return ref
+	}
+	return fmt.Sprintf("call_%s", name)
 }
 
 // embed handles embedding generation using Azure OpenAI

@@ -486,7 +486,11 @@ response, err := genkit.Generate(ctx, g,
 ```go
 streamCallback := func(ctx context.Context, chunk *ai.ModelResponseChunk) error {
 	for _, part := range chunk.Content {
-		if part.IsText() {
+		switch {
+		case part.IsReasoning():
+			// Reasoning models (e.g. DeepSeek-R1, Kimi) stream their chain of thought
+			fmt.Print(part.Text)
+		case part.IsText():
 			fmt.Print(part.Text)
 		}
 	}
@@ -499,6 +503,16 @@ response, err := genkit.Generate(ctx, g,
 	ai.WithStreaming(streamCallback),
 )
 ```
+
+Streaming responses surface the same data as non-streaming ones:
+
+- **Reasoning output** from reasoning models is emitted as reasoning parts
+  (`part.IsReasoning()`) during streaming and accumulated onto the final message
+  (`response.Reasoning()`).
+- The **real finish reason** is reported (e.g. `content_filter`, `length`), so Azure
+  content filtering or truncation is distinguishable from a clean stop.
+- **Token usage** is populated on the final response, including `ThoughtsTokens` for
+  reasoning models (`response.Usage`).
 
 ### 💬 Multi-turn Conversations
 

@@ -464,8 +464,8 @@ func (a *AzureAIFoundry) generateImages(ctx context.Context, modelName string, i
 	// Apply config from input if available
 	if input.Config != nil {
 		if configMap, ok := input.Config.(map[string]interface{}); ok {
-			if n, ok := configMap["n"].(int); ok {
-				req.N = n
+			if n, ok := int64FromConfigValue(configMap["n"]); ok {
+				req.N = int(n)
 			}
 			if size, ok := configMap["size"].(string); ok {
 				req.Size = size
@@ -536,7 +536,7 @@ func (a *AzureAIFoundry) generateSpeech(ctx context.Context, modelName string, i
 			if format, ok := configMap["response_format"].(string); ok {
 				req.ResponseFormat = format
 			}
-			if speed, ok := configMap["speed"].(float64); ok {
+			if speed, ok := float64FromConfigValue(configMap["speed"]); ok {
 				req.Speed = speed
 			}
 		}
@@ -618,7 +618,7 @@ func (a *AzureAIFoundry) transcribeAudioFromRequest(ctx context.Context, modelNa
 			if format, ok := configMap["response_format"].(string); ok {
 				req.ResponseFormat = format
 			}
-			if temp, ok := configMap["temperature"].(float64); ok {
+			if temp, ok := float64FromConfigValue(configMap["temperature"]); ok {
 				req.Temperature = temp
 			}
 		}
@@ -806,7 +806,41 @@ type modelConfig struct {
 	reasoningEffort *string // "none", "minimal", "low", "medium", "high", "xhigh"
 }
 
-// extractConfigFromRequest safely extracts configuration values from request
+// int64FromConfigValue extracts integral config values from common Go and JSON number types.
+func int64FromConfigValue(value interface{}) (int64, bool) {
+	switch v := value.(type) {
+	case int:
+		return int64(v), true
+	case int32:
+		return int64(v), true
+	case int64:
+		return v, true
+	case float64:
+		if v == float64(int64(v)) {
+			return int64(v), true
+		}
+	}
+	return 0, false
+}
+
+// float64FromConfigValue extracts numeric config values from common Go and JSON number types.
+func float64FromConfigValue(value interface{}) (float64, bool) {
+	switch v := value.(type) {
+	case float32:
+		return float64(v), true
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	}
+	return 0, false
+}
+
+// extractConfigFromRequest safely extracts configuration values from request.
 func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *modelConfig {
 	config := &modelConfig{}
 
@@ -821,14 +855,13 @@ func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *model
 	if reasoningEffort, ok := configMap["reasoningEffort"].(string); ok {
 		config.reasoningEffort = &reasoningEffort
 	}
-	if maxTokens, ok := configMap["maxOutputTokens"].(int); ok {
-		val := int64(maxTokens)
-		config.maxTokens = &val
+	if maxTokens, ok := int64FromConfigValue(configMap["maxOutputTokens"]); ok {
+		config.maxTokens = &maxTokens
 	}
-	if temp, ok := configMap["temperature"].(float64); ok {
+	if temp, ok := float64FromConfigValue(configMap["temperature"]); ok {
 		config.temperature = &temp
 	}
-	if topP, ok := configMap["topP"].(float64); ok {
+	if topP, ok := float64FromConfigValue(configMap["topP"]); ok {
 		config.topP = &topP
 	}
 	if toolChoice, ok := configMap["toolChoice"].(string); ok {
@@ -1013,6 +1046,8 @@ func (a *AzureAIFoundry) generateTextStream(ctx context.Context, params openai.C
 					toolCallsMap[idx] = &toolCallAccumulator{
 						id: toolCallDelta.ID,
 					}
+				} else if toolCallsMap[idx].id == "" && toolCallDelta.ID != "" {
+					toolCallsMap[idx].id = toolCallDelta.ID
 				}
 
 				// Accumulate function name and arguments

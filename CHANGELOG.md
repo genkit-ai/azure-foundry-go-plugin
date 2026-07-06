@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.3.5...v1.3.6) (2026-07-06)
+
+### 🐛 Bug Fixes
+
+* bump version ([ea79895](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/ea798957e3a6ebfdb0275e5e3567cc892e4191a4))
+
 ## [1.3.5](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.3.4...v1.3.5) (2026-07-06)
 
 ### 🐛 Bug Fixes

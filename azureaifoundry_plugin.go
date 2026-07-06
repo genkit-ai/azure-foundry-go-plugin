@@ -721,10 +721,13 @@ func (a *AzureAIFoundry) convertMessagesToOpenAI(messages []*ai.Message) []opena
 		case ai.RoleModel:
 			// Extract all content parts and tool requests
 			var textContent string
+			var reasoningContent string
 			var toolCalls []openai.ChatCompletionMessageToolCallUnionParam
 
 			for _, part := range msg.Content {
-				if part.IsText() {
+				if part.IsReasoning() {
+					reasoningContent += part.Text
+				} else if part.IsText() {
 					textContent += part.Text
 				} else if part.IsToolRequest() {
 					toolReq := part.ToolRequest
@@ -754,6 +757,15 @@ func (a *AzureAIFoundry) convertMessagesToOpenAI(messages []*ai.Message) []opena
 
 			if len(toolCalls) > 0 {
 				assistantMsg.ToolCalls = toolCalls
+			}
+
+			// Round-trip reasoning back to the provider as the non-standard
+			// reasoning_content field, mirroring how it is read from responses.
+			// openai-go does not model this field, so set it as an extra field.
+			if reasoningContent != "" {
+				assistantMsg.SetExtraFields(map[string]any{
+					"reasoning_content": reasoningContent,
+				})
 			}
 
 			openAIMessages = append(openAIMessages, openai.ChatCompletionMessageParamUnion{

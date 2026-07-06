@@ -253,6 +253,45 @@ func TestConvertMessagesToOpenAIToolCallIDRoundTrip(t *testing.T) {
 	}
 }
 
+// TestConvertMessagesToOpenAIReasoningRoundTrip verifies that a model message's
+// reasoning parts are serialized back to the non-standard reasoning_content field on
+// the assistant message param (via openai-go's SetExtraFields), so the provider sees
+// the prior chain of thought on subsequent turns.
+func TestConvertMessagesToOpenAIReasoningRoundTrip(t *testing.T) {
+	a := &AzureAIFoundry{}
+	messages := []*ai.Message{
+		{
+			Role: ai.RoleModel,
+			Content: []*ai.Part{
+				ai.NewReasoningPart("first thought. ", nil),
+				ai.NewReasoningPart("second thought.", nil),
+				ai.NewTextPart("the answer"),
+			},
+		},
+	}
+
+	got := a.convertMessagesToOpenAI(messages)
+	if len(got) != 1 || got[0].OfAssistant == nil {
+		t.Fatalf("expected 1 assistant message, got %+v", got)
+	}
+
+	// The extra field only appears once the param is marshaled to the request body.
+	raw, err := json.Marshal(got[0])
+	if err != nil {
+		t.Fatalf("marshal assistant message: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("unmarshal assistant message: %v", err)
+	}
+	if got, want := decoded["reasoning_content"], "first thought. second thought."; got != want {
+		t.Fatalf("reasoning_content = %v, want %q (raw: %s)", got, want, raw)
+	}
+	if got, want := decoded["content"], "the answer"; got != want {
+		t.Fatalf("content = %v, want %q", got, want)
+	}
+}
+
 // TestConvertMessagesToOpenAIToolCallIDFallback verifies the name-derived fallback for
 // transcripts that predate real-id round-tripping (no Ref set).
 func TestConvertMessagesToOpenAIToolCallIDFallback(t *testing.T) {

@@ -462,23 +462,28 @@ func (a *AzureAIFoundry) generateImages(ctx context.Context, modelName string, i
 	}
 
 	// Apply config from input if available
-	if input.Config != nil {
-		if configMap, ok := input.Config.(map[string]interface{}); ok {
-			if n, ok := int64FromConfigValue(configMap["n"]); ok {
-				req.N = int(n)
-			}
-			if size, ok := configMap["size"].(string); ok {
-				req.Size = size
-			}
-			if quality, ok := configMap["quality"].(string); ok {
-				req.Quality = quality
-			}
-			if style, ok := configMap["style"].(string); ok {
-				req.Style = style
-			}
-			if format, ok := configMap["response_format"].(string); ok {
-				req.ResponseFormat = format
-			}
+	type imageConfig struct {
+		N              *int64 `json:"n,omitempty"`
+		Size           string `json:"size,omitempty"`
+		Quality        string `json:"quality,omitempty"`
+		Style          string `json:"style,omitempty"`
+		ResponseFormat string `json:"response_format,omitempty"`
+	}
+	if cfg, ok := decodeConfig[imageConfig](input.Config); ok {
+		if cfg.N != nil {
+			req.N = int(*cfg.N)
+		}
+		if cfg.Size != "" {
+			req.Size = cfg.Size
+		}
+		if cfg.Quality != "" {
+			req.Quality = cfg.Quality
+		}
+		if cfg.Style != "" {
+			req.Style = cfg.Style
+		}
+		if cfg.ResponseFormat != "" {
+			req.ResponseFormat = cfg.ResponseFormat
 		}
 	}
 
@@ -528,17 +533,20 @@ func (a *AzureAIFoundry) generateSpeech(ctx context.Context, modelName string, i
 	}
 
 	// Apply config from input if available
-	if input.Config != nil {
-		if configMap, ok := input.Config.(map[string]interface{}); ok {
-			if voice, ok := configMap["voice"].(string); ok {
-				req.Voice = voice
-			}
-			if format, ok := configMap["response_format"].(string); ok {
-				req.ResponseFormat = format
-			}
-			if speed, ok := float64FromConfigValue(configMap["speed"]); ok {
-				req.Speed = speed
-			}
+	type speechConfig struct {
+		Voice          string   `json:"voice,omitempty"`
+		ResponseFormat string   `json:"response_format,omitempty"`
+		Speed          *float64 `json:"speed,omitempty"`
+	}
+	if cfg, ok := decodeConfig[speechConfig](input.Config); ok {
+		if cfg.Voice != "" {
+			req.Voice = cfg.Voice
+		}
+		if cfg.ResponseFormat != "" {
+			req.ResponseFormat = cfg.ResponseFormat
+		}
+		if cfg.Speed != nil {
+			req.Speed = *cfg.Speed
 		}
 	}
 
@@ -607,20 +615,24 @@ func (a *AzureAIFoundry) transcribeAudioFromRequest(ctx context.Context, modelNa
 	}
 
 	// Apply config from input if available
-	if input.Config != nil {
-		if configMap, ok := input.Config.(map[string]interface{}); ok {
-			if lang, ok := configMap["language"].(string); ok {
-				req.Language = lang
-			}
-			if prompt, ok := configMap["prompt"].(string); ok {
-				req.Prompt = prompt
-			}
-			if format, ok := configMap["response_format"].(string); ok {
-				req.ResponseFormat = format
-			}
-			if temp, ok := float64FromConfigValue(configMap["temperature"]); ok {
-				req.Temperature = temp
-			}
+	type transcriptionConfig struct {
+		Language       string   `json:"language,omitempty"`
+		Prompt         string   `json:"prompt,omitempty"`
+		ResponseFormat string   `json:"response_format,omitempty"`
+		Temperature    *float64 `json:"temperature,omitempty"`
+	}
+	if cfg, ok := decodeConfig[transcriptionConfig](input.Config); ok {
+		if cfg.Language != "" {
+			req.Language = cfg.Language
+		}
+		if cfg.Prompt != "" {
+			req.Prompt = cfg.Prompt
+		}
+		if cfg.ResponseFormat != "" {
+			req.ResponseFormat = cfg.ResponseFormat
+		}
+		if cfg.Temperature != nil {
+			req.Temperature = *cfg.Temperature
 		}
 	}
 
@@ -806,67 +818,49 @@ type modelConfig struct {
 	reasoningEffort *string // "none", "minimal", "low", "medium", "high", "xhigh"
 }
 
-// int64FromConfigValue extracts integral config values from common Go and JSON number types.
-func int64FromConfigValue(value interface{}) (int64, bool) {
-	switch v := value.(type) {
-	case int:
-		return int64(v), true
-	case int32:
-		return int64(v), true
-	case int64:
-		return v, true
-	case float64:
-		if v == float64(int64(v)) {
-			return int64(v), true
-		}
+// decodeConfig converts a request's Config into T via a JSON round-trip. Genkit delivers
+// Config as an untyped value that is usually a map[string]any decoded from JSON — so every
+// number is a float64 — but may also be a typed struct. Marshaling and unmarshaling into T
+// lets encoding/json coerce the numeric types, instead of relying on exact type assertions
+// that only match one of the possible representations. This mirrors how Genkit's own
+// plugins read config (internal/base.MapToStruct). It reports false when there is no config
+// or the config does not fit T.
+func decodeConfig[T any](cfg any) (T, bool) {
+	var out T
+	if cfg == nil {
+		return out, false
 	}
-	return 0, false
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return out, false
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, false
+	}
+	return out, true
 }
 
-// float64FromConfigValue extracts numeric config values from common Go and JSON number types.
-func float64FromConfigValue(value interface{}) (float64, bool) {
-	switch v := value.(type) {
-	case float32:
-		return float64(v), true
-	case float64:
-		return v, true
-	case int:
-		return float64(v), true
-	case int32:
-		return float64(v), true
-	case int64:
-		return float64(v), true
-	}
-	return 0, false
-}
-
-// extractConfigFromRequest safely extracts configuration values from request.
+// extractConfigFromRequest safely extracts chat configuration values from a request.
 func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *modelConfig {
 	config := &modelConfig{}
 
-	if input.Config == nil {
-		return config
+	type chatConfig struct {
+		MaxOutputTokens *int64   `json:"maxOutputTokens,omitempty"`
+		Temperature     *float64 `json:"temperature,omitempty"`
+		TopP            *float64 `json:"topP,omitempty"`
+		ToolChoice      string   `json:"toolChoice,omitempty"`
+		ReasoningEffort *string  `json:"reasoningEffort,omitempty"`
 	}
-
-	configMap, ok := input.Config.(map[string]interface{})
+	parsed, ok := decodeConfig[chatConfig](input.Config)
 	if !ok {
 		return config
 	}
-	if reasoningEffort, ok := configMap["reasoningEffort"].(string); ok {
-		config.reasoningEffort = &reasoningEffort
-	}
-	if maxTokens, ok := int64FromConfigValue(configMap["maxOutputTokens"]); ok {
-		config.maxTokens = &maxTokens
-	}
-	if temp, ok := float64FromConfigValue(configMap["temperature"]); ok {
-		config.temperature = &temp
-	}
-	if topP, ok := float64FromConfigValue(configMap["topP"]); ok {
-		config.topP = &topP
-	}
-	if toolChoice, ok := configMap["toolChoice"].(string); ok {
-		config.toolChoice = toolChoice
-	}
+
+	config.maxTokens = parsed.MaxOutputTokens
+	config.temperature = parsed.Temperature
+	config.topP = parsed.TopP
+	config.toolChoice = parsed.ToolChoice
+	config.reasoningEffort = parsed.ReasoningEffort
 
 	return config
 }

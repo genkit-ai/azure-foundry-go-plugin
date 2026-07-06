@@ -17,7 +17,11 @@
 
 package azureaifoundry
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/firebase/genkit/go/ai"
+)
 
 func TestInferModelCapabilitiesDetectsToolCallingModels(t *testing.T) {
 	plugin := &AzureAIFoundry{}
@@ -72,5 +76,57 @@ func TestInferModelCapabilitiesDetectsToolCallingModels(t *testing.T) {
 				t.Fatalf("Media = %v, want %v", info.Supports.Media, tt.wantMedia)
 			}
 		})
+	}
+}
+
+func TestExtractConfigFromRequestAcceptsJSONNumberTypes(t *testing.T) {
+	plugin := &AzureAIFoundry{}
+
+	config := plugin.extractConfigFromRequest(&ai.ModelRequest{
+		Config: map[string]interface{}{
+			"maxOutputTokens": float64(128),
+			"temperature":     1,
+			"topP":            float32(0.75),
+		},
+	})
+
+	if config.maxTokens == nil || *config.maxTokens != 128 {
+		t.Fatalf("maxTokens = %v, want 128", config.maxTokens)
+	}
+	if config.temperature == nil || *config.temperature != 1 {
+		t.Fatalf("temperature = %v, want 1", config.temperature)
+	}
+	if config.topP == nil || *config.topP != 0.75 {
+		t.Fatalf("topP = %v, want 0.75", config.topP)
+	}
+}
+
+func TestConvertMessagesToOpenAIPreservesToolRefs(t *testing.T) {
+	plugin := &AzureAIFoundry{}
+	messages := []*ai.Message{
+		{
+			Role: ai.RoleModel,
+			Content: []*ai.Part{ai.NewToolRequestPart(&ai.ToolRequest{
+				Name:  "lookup",
+				Ref:   "call_123",
+				Input: map[string]interface{}{"q": "azure"},
+			})},
+		},
+		{
+			Role: ai.RoleTool,
+			Content: []*ai.Part{ai.NewToolResponsePart(&ai.ToolResponse{
+				Name:   "lookup",
+				Ref:    "call_123",
+				Output: map[string]interface{}{"ok": true},
+			})},
+		},
+	}
+
+	converted := plugin.convertMessagesToOpenAI(messages)
+	if got := converted[0].OfAssistant.ToolCalls[0].OfFunction.ID; got != "call_123" {
+		t.Fatalf("assistant tool call ID = %q, want call_123", got)
+	}
+	if got := converted[1].OfTool.ToolCallID; got != "call_123" {
+		t.Fatalf("tool response ID = %q, want call_123", got)
 	}
 }

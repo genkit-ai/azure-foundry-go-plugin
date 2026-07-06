@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.3.6...v1.4.0) (2026-07-06)
+
+### 🚀 Features
+
+* decode request config into typed structs ([#64](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/64)) ([e544a6c](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/e544a6c91e692879c1f9d8b93b91912ccea05bd3))
+
 ## [1.3.6](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.3.5...v1.3.6) (2026-07-06)
 
 ### 🐛 Bug Fixes

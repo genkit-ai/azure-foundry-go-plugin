@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.4.2...v1.5.0) (2026-07-22)
+
+### 🚀 Features
+
+* wire model type and max token defaults ([#71](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/71)) ([e06b954](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/e06b954c3b597bf2476f8a370c6eddac4977367b))
+
 ## [1.4.2](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.4.1...v1.4.2) (2026-07-22)
 
 ### 📦 Code Refactoring

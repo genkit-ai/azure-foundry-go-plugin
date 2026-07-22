@@ -43,7 +43,7 @@ func main() {
 	// Define Whisper model with media support (required for audio input)
 	whisperModel := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 		Name:          azureaifoundry.ModelWhisper1,
-		Type:          "chat",
+		Type:          azureaifoundry.ModelTypeSpeechToText,
 		SupportsMedia: true, // Required for media parts (audio)
 	}, nil)
 

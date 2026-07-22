@@ -40,7 +40,7 @@ func main() {
 	// Define DALL-E model
 	dallE3 := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 		Name: azureaifoundry.ModelDallE3,
-		Type: "chat",
+		Type: azureaifoundry.ModelTypeImage,
 	}, nil)
 
 	log.Println("Starting image generation with genkit.Generate()...")

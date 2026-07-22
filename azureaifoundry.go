@@ -128,7 +128,7 @@ func (a *AzureAIFoundry) DefineModel(g *genkit.Genkit, model ModelDefinition, in
 		input *ai.ModelRequest,
 		cb func(context.Context, *ai.ModelResponseChunk) error,
 	) (*ai.ModelResponse, error) {
-		return a.generateText(ctx, model.Name, input, cb)
+		return a.generateText(ctx, model, input, cb)
 	})
 }
 

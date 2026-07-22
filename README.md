@@ -154,7 +154,7 @@ func main() {
 	// Define a GPT-5 model (use your deployment name)
 	gpt5Model := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 		Name:          "gpt-5", // Your deployment name in Azure
-		Type:          "chat",
+		Type:          azureaifoundry.ModelTypeChat,
 		SupportsMedia: true,
 	}, nil)
 
@@ -389,6 +389,15 @@ Important: The `Name` in `ModelDefinition` should match your **deployment name**
 - If you deployed `gpt-5` with deployment name `my-gpt5-deployment`, use `"my-gpt5-deployment"`
 - If you deployed `gpt-4o` with deployment name `gpt-4o`, use `"gpt-4o"`
 
+Set `Type` using `ModelTypeChat`, `ModelTypeText`, `ModelTypeImage`,
+`ModelTypeTextToSpeech`, or `ModelTypeSpeechToText`. An explicit type controls request
+routing, which is useful when a custom deployment name contains a word such as `tts` or
+`transcribe`. Leave `Type` empty to infer the type from the deployment name for backwards
+compatibility.
+
+`MaxTokens` sets the model's default maximum output-token count. A per-call
+`maxOutputTokens` configuration value takes precedence when provided.
+
 ## Examples Directory
 
 The repository includes comprehensive examples:
@@ -575,7 +584,7 @@ Generate images with DALL-E models using the standard `genkit.Generate()` method
 // Define DALL-E model
 dallE3 := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 	Name: azureaifoundry.ModelDallE3,
-	Type: "chat",
+	Type: azureaifoundry.ModelTypeImage,
 }, nil)
 
 // Generate image
@@ -606,7 +615,7 @@ import "encoding/base64"
 // Define TTS model
 ttsModel := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 	Name: azureaifoundry.ModelTTS1HD,
-	Type: "chat",
+	Type: azureaifoundry.ModelTypeTextToSpeech,
 }, nil)
 
 // Generate speech
@@ -639,7 +648,7 @@ import "encoding/base64"
 // Define Whisper model with media support (required for audio input)
 whisperModel := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 	Name:          azureaifoundry.ModelWhisper1,
-	Type:          "chat",
+	Type:          azureaifoundry.ModelTypeSpeechToText,
 	SupportsMedia: true, // Required for media parts (audio)
 }, nil)
 

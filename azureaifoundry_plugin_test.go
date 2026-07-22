@@ -101,6 +101,86 @@ func TestExtractConfigFromRequestAcceptsJSONNumberTypes(t *testing.T) {
 	}
 }
 
+func TestResolveModelType(t *testing.T) {
+	tests := []struct {
+		name  string
+		model ModelDefinition
+		want  string
+	}{
+		{
+			name:  "explicit chat type overrides a misleading deployment name",
+			model: ModelDefinition{Name: "product-tts-analyzer", Type: ModelTypeChat},
+			want:  ModelTypeChat,
+		},
+		{
+			name:  "explicit image type does not depend on deployment name",
+			model: ModelDefinition{Name: "creative-deployment", Type: ModelTypeImage},
+			want:  ModelTypeImage,
+		},
+		{
+			name:  "empty type retains image name inference",
+			model: ModelDefinition{Name: "dall-e-3"},
+			want:  ModelTypeImage,
+		},
+		{
+			name:  "empty type retains text to speech name inference",
+			model: ModelDefinition{Name: "gpt-4o-mini-tts"},
+			want:  ModelTypeTextToSpeech,
+		},
+		{
+			name:  "empty type retains speech to text name inference",
+			model: ModelDefinition{Name: "whisper-1"},
+			want:  ModelTypeSpeechToText,
+		},
+		{
+			name:  "empty type defaults to chat",
+			model: ModelDefinition{Name: "custom-deployment"},
+			want:  ModelTypeChat,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveModelType(tt.model)
+			if err != nil {
+				t.Fatalf("resolveModelType() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("resolveModelType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveModelTypeRejectsUnsupportedType(t *testing.T) {
+	_, err := resolveModelType(ModelDefinition{Name: "deployment", Type: "video"})
+	if err == nil {
+		t.Fatal("resolveModelType() error = nil, want unsupported type error")
+	}
+}
+
+func TestBuildChatCompletionParamsUsesModelMaxTokensAsDefault(t *testing.T) {
+	plugin := &AzureAIFoundry{}
+	model := ModelDefinition{Name: "gpt-deployment", MaxTokens: 512}
+
+	params := plugin.buildChatCompletionParams(&ai.ModelRequest{}, model)
+	if !params.MaxTokens.Valid() || params.MaxTokens.Value != 512 {
+		t.Fatalf("MaxTokens = %v, want model default 512", params.MaxTokens)
+	}
+
+	params = plugin.buildChatCompletionParams(&ai.ModelRequest{
+		Config: map[string]any{"maxOutputTokens": 128},
+	}, model)
+	if !params.MaxTokens.Valid() || params.MaxTokens.Value != 128 {
+		t.Fatalf("MaxTokens = %v, want per-call override 128", params.MaxTokens)
+	}
+
+	params = plugin.buildChatCompletionParams(&ai.ModelRequest{}, ModelDefinition{Name: "gpt-deployment"})
+	if params.MaxTokens.Valid() {
+		t.Fatalf("MaxTokens = %v, want nil without a model default", params.MaxTokens)
+	}
+}
+
 func TestConvertMessagesToOpenAIPreservesToolRefs(t *testing.T) {
 	plugin := &AzureAIFoundry{}
 	messages := []*ai.Message{

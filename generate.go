@@ -28,34 +28,65 @@ import (
 	"github.com/openai/openai-go/v3/packages/respjson"
 )
 
-// generateText handles text generation using Azure OpenAI
-func (a *AzureAIFoundry) generateText(ctx context.Context, modelName string, input *ai.ModelRequest, cb func(context.Context, *ai.ModelResponseChunk) error) (*ai.ModelResponse, error) {
-	modelLower := strings.ToLower(modelName)
-
-	// Handle image generation models (DALL-E)
-	if strings.Contains(modelLower, "dall-e") || strings.Contains(modelLower, "gpt-image") {
-		return a.generateImages(ctx, modelName, input)
+// generateText routes a request according to the explicitly configured model
+// type, falling back to name-based inference when Type is empty.
+func (a *AzureAIFoundry) generateText(ctx context.Context, model ModelDefinition, input *ai.ModelRequest, cb func(context.Context, *ai.ModelResponseChunk) error) (*ai.ModelResponse, error) {
+	modelType, err := resolveModelType(model)
+	if err != nil {
+		return nil, err
 	}
 
-	// Handle text-to-speech models
-	if strings.Contains(modelLower, "tts-") || strings.Contains(modelLower, "tts") {
-		return a.generateSpeech(ctx, modelName, input)
+	switch modelType {
+	case ModelTypeImage:
+		return a.generateImages(ctx, model.Name, input)
+	case ModelTypeTextToSpeech:
+		return a.generateSpeech(ctx, model.Name, input)
+	case ModelTypeSpeechToText:
+		return a.transcribeAudioFromRequest(ctx, model.Name, input)
 	}
 
-	// Handle speech-to-text models (Whisper, transcribe)
-	if strings.Contains(modelLower, "whisper") || strings.Contains(modelLower, "transcribe") {
-		return a.transcribeAudioFromRequest(ctx, modelName, input)
-	}
-
-	// Default: standard chat completion
-	// Build chat completion parameters
-	params := a.buildChatCompletionParams(input, modelName)
+	params := a.buildChatCompletionParams(input, model)
 
 	// Handle streaming vs non-streaming
 	if cb != nil {
 		return a.generateTextStream(ctx, params, input, cb)
 	}
 	return a.generateTextSync(ctx, params, input)
+}
+
+func resolveModelType(model ModelDefinition) (string, error) {
+	if model.Type == "" {
+		return inferModelType(model.Name), nil
+	}
+
+	switch strings.ToLower(strings.TrimSpace(model.Type)) {
+	case ModelTypeChat:
+		return ModelTypeChat, nil
+	case ModelTypeText:
+		return ModelTypeText, nil
+	case ModelTypeImage:
+		return ModelTypeImage, nil
+	case ModelTypeTextToSpeech, "tts":
+		return ModelTypeTextToSpeech, nil
+	case ModelTypeSpeechToText, "stt", "transcription":
+		return ModelTypeSpeechToText, nil
+	default:
+		return "", fmt.Errorf("azureaifoundry: unsupported model type %q", model.Type)
+	}
+}
+
+func inferModelType(modelName string) string {
+	modelLower := strings.ToLower(modelName)
+	if strings.Contains(modelLower, "dall-e") || strings.Contains(modelLower, "gpt-image") {
+		return ModelTypeImage
+	}
+	if strings.Contains(modelLower, "tts") {
+		return ModelTypeTextToSpeech
+	}
+	if strings.Contains(modelLower, "whisper") || strings.Contains(modelLower, "transcribe") {
+		return ModelTypeSpeechToText
+	}
+	return ModelTypeChat
 }
 
 // hasMultimodalContent checks if a message contains multimodal content (text + images)
@@ -242,11 +273,11 @@ func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *model
 }
 
 // buildChatCompletionParams builds OpenAI chat completion parameters from Genkit request
-func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, modelName string) openai.ChatCompletionNewParams {
+func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model ModelDefinition) openai.ChatCompletionNewParams {
 	messages := a.convertMessagesToOpenAI(input.Messages)
 
 	params := openai.ChatCompletionNewParams{
-		Model:    openai.ChatModel(modelName),
+		Model:    openai.ChatModel(model.Name),
 		Messages: messages,
 	}
 
@@ -254,6 +285,8 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 	config := a.extractConfigFromRequest(input)
 	if config.maxTokens != nil {
 		params.MaxTokens = openai.Int(*config.maxTokens)
+	} else if model.MaxTokens > 0 {
+		params.MaxTokens = openai.Int(int64(model.MaxTokens))
 	}
 	if config.temperature != nil {
 		params.Temperature = openai.Float(*config.temperature)

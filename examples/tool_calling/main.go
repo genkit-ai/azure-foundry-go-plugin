@@ -110,7 +110,7 @@ func main() {
 	// Define GPT-5 model (use your deployment name)
 	gpt5Model := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 		Name: "gpt-5", // Replace with your actual deployment name
-		Type: "chat",
+		Type: azureaifoundry.ModelTypeChat,
 	}, nil)
 
 	// Define weather tool

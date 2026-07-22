@@ -42,7 +42,7 @@ func main() {
 	// Define TTS model
 	ttsModel := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 		Name: azureaifoundry.ModelTTS1,
-		Type: "chat",
+		Type: azureaifoundry.ModelTypeTextToSpeech,
 	}, nil)
 
 	log.Println("Starting text-to-speech with genkit.Generate()...")
@@ -104,7 +104,7 @@ func main() {
 	log.Println("\n=== Example 3: Echo voice (HD quality) ===")
 	ttsHDModel := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
 		Name: azureaifoundry.ModelTTS1HD,
-		Type: "chat",
+		Type: azureaifoundry.ModelTypeTextToSpeech,
 	}, nil)
 
 	resp3, err := genkit.Generate(ctx, g,

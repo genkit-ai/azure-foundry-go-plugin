@@ -19,11 +19,21 @@ package azureaifoundry
 
 import "encoding/json"
 
-// ModelDefinition represents a model with its name and type.
+// Supported model types. An empty model type preserves name-based routing for
+// backwards compatibility.
+const (
+	ModelTypeChat         = "chat"
+	ModelTypeText         = "text"
+	ModelTypeImage        = "image"
+	ModelTypeTextToSpeech = "text-to-speech"
+	ModelTypeSpeechToText = "speech-to-text"
+)
+
+// ModelDefinition represents a model deployment and its defaults.
 type ModelDefinition struct {
 	Name          string // Model deployment name in Azure AI Foundry
-	Type          string // Type: "chat", "text"
-	MaxTokens     int32  // Maximum tokens the model can handle (optional)
+	Type          string // One of the ModelType constants; empty infers the type from Name
+	MaxTokens     int32  // Default maximum output tokens; a per-call value takes precedence
 	SupportsMedia bool   // Whether the model supports media (images, audio) (optional)
 }
 

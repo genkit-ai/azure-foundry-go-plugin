@@ -57,47 +57,47 @@ func DefineCommonModels(a *AzureAIFoundry, g *genkit.Genkit) map[string]ai.Model
 	//GPT-5 models
 	models["gpt-5"] = a.DefineModel(g, ModelDefinition{
 		Name:          "gpt-5",
-		Type:          "chat",
+		Type:          ModelTypeChat,
 		SupportsMedia: true,
 	}, nil)
 
 	// GPT-5 Mini models
 	models["gpt-5-mini"] = a.DefineModel(g, ModelDefinition{
 		Name:          "gpt-5-mini",
-		Type:          "chat",
+		Type:          ModelTypeChat,
 		SupportsMedia: true,
 	}, nil)
 
 	// GPT-4o models
 	models["gpt-4o"] = a.DefineModel(g, ModelDefinition{
 		Name:          "gpt-4o",
-		Type:          "chat",
+		Type:          ModelTypeChat,
 		SupportsMedia: true,
 	}, nil)
 
 	models["gpt-4o-mini"] = a.DefineModel(g, ModelDefinition{
 		Name:          "gpt-4o-mini",
-		Type:          "chat",
+		Type:          ModelTypeChat,
 		SupportsMedia: true,
 	}, nil)
 
 	// GPT-4 Turbo models
 	models["gpt-4-turbo"] = a.DefineModel(g, ModelDefinition{
 		Name:          "gpt-4-turbo",
-		Type:          "chat",
+		Type:          ModelTypeChat,
 		SupportsMedia: true,
 	}, nil)
 
 	// GPT-4 models
 	models["gpt-4"] = a.DefineModel(g, ModelDefinition{
 		Name: "gpt-4",
-		Type: "chat",
+		Type: ModelTypeChat,
 	}, nil)
 
 	// GPT-3.5 Turbo models
 	models["gpt-35-turbo"] = a.DefineModel(g, ModelDefinition{
 		Name: "gpt-35-turbo",
-		Type: "chat",
+		Type: ModelTypeChat,
 	}, nil)
 
 	return models

@@ -37,13 +37,21 @@ type ModelDefinition struct {
 	SupportsMedia bool   // Whether the model supports media (images, audio) (optional)
 }
 
-// extractConfig extracts and validates configuration values from a ModelRequest
-type modelConfig struct {
-	maxTokens       *int64
-	temperature     *float64
-	topP            *float64
-	toolChoice      string
-	reasoningEffort *string // "none", "minimal", "low", "medium", "high", "xhigh"
+// GenerationConfig configures an individual chat generation request. Pointer
+// fields distinguish an explicitly supplied zero value from an omitted value.
+// ai.GenerationCommonConfig and JSON-compatible maps are also accepted.
+type GenerationConfig struct {
+	MaxOutputTokens   *int64   `json:"maxOutputTokens,omitempty"`
+	StopSequences     []string `json:"stopSequences,omitempty"`
+	Temperature       *float64 `json:"temperature,omitempty"`
+	TopK              *int64   `json:"topK,omitempty"`
+	TopP              *float64 `json:"topP,omitempty"`
+	ToolChoice        string   `json:"toolChoice,omitempty"`
+	ReasoningEffort   *string  `json:"reasoningEffort,omitempty"` // "none", "minimal", "low", "medium", "high", "xhigh"
+	Seed              *int64   `json:"seed,omitempty"`
+	PresencePenalty   *float64 `json:"presencePenalty,omitempty"`
+	FrequencyPenalty  *float64 `json:"frequencyPenalty,omitempty"`
+	ParallelToolCalls *bool    `json:"parallelToolCalls,omitempty"`
 }
 
 // decodeConfig converts a request's Config into T via a JSON round-trip. Genkit delivers

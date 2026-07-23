@@ -14,6 +14,7 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 		- [Define Models and Generate Text](#define-models-and-generate-text)
 	- [Configuration Options](#configuration-options)
 		- [Available Configuration](#available-configuration)
+		- [Per-call Generation Configuration](#per-call-generation-configuration)
 	- [Azure Setup and Authentication](#azure-setup-and-authentication)
 		- [Getting Your Endpoint and API Key](#getting-your-endpoint-and-api-key)
 		- [Authentication Methods](#authentication-methods)
@@ -196,6 +197,47 @@ azurePlugin := &azureaifoundry.AzureAIFoundry{
 | `APIKey` | `string` | "" | API key for authentication |
 | `Credential` | `azcore.TokenCredential` | `nil` | Azure credential (alternative to API key) |
 | `APIVersion` | `string` | Latest | API version to use |
+
+### Per-call Generation Configuration
+
+Pass generation settings with `ai.WithConfig`. JSON-compatible maps,
+`ai.GenerationCommonConfig`, and the plugin's typed `GenerationConfig` are supported.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `maxOutputTokens` | number | Maximum tokens generated for this call |
+| `stopSequences` | string array | Stop generation when any sequence is encountered |
+| `temperature` | number | Sampling temperature |
+| `topK` | number | Not supported by Azure OpenAI chat completions; supplying it returns an error |
+| `topP` | number | Nucleus-sampling probability |
+| `seed` | number | Best-effort deterministic sampling seed |
+| `presencePenalty` | number | Penalizes tokens that have already appeared |
+| `frequencyPenalty` | number | Penalizes tokens based on repetition frequency |
+| `parallelToolCalls` | boolean | Enables or disables parallel tool calls |
+| `toolChoice` | string | Tool-selection mode: `auto`, `required`, or `none` |
+| `reasoningEffort` | string | Reasoning level: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh` |
+
+```go
+response, err := genkit.Generate(ctx, g,
+	ai.WithModel(gpt5Model),
+	ai.WithPrompt("Summarize the release notes as JSON."),
+	ai.WithConfig(map[string]any{
+		"maxOutputTokens":  500,
+		"stopSequences":    []string{"END"},
+		"temperature":      0.2,
+		"seed":             42,
+		"presencePenalty":  0.1,
+		"frequencyPenalty": 0.1,
+	}),
+	ai.WithOutputType(struct {
+		Summary string `json:"summary"`
+	}{}),
+)
+```
+
+`ai.WithOutputFormat(ai.OutputFormatJSON)` requests JSON-object mode. `ai.WithOutputType`
+or `ai.WithOutputSchema` uses native JSON Schema when Genkit marks the model as supporting
+constrained output; otherwise it uses JSON-object mode with Genkit's schema instructions.
 
 ## Azure Setup and Authentication
 

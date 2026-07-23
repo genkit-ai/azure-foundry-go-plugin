@@ -26,6 +26,7 @@ import (
 	"github.com/firebase/genkit/go/ai"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/respjson"
+	"github.com/openai/openai-go/v3/shared"
 )
 
 // generateText routes a request according to the explicitly configured model
@@ -45,7 +46,10 @@ func (a *AzureAIFoundry) generateText(ctx context.Context, model ModelDefinition
 		return a.transcribeAudioFromRequest(ctx, model.Name, input)
 	}
 
-	params := a.buildChatCompletionParams(input, model)
+	params, err := a.buildChatCompletionParams(input, model)
+	if err != nil {
+		return nil, err
+	}
 
 	// Handle streaming vs non-streaming
 	if cb != nil {
@@ -248,32 +252,17 @@ func (a *AzureAIFoundry) convertMessagesToOpenAI(messages []*ai.Message) []opena
 }
 
 // extractConfigFromRequest safely extracts chat configuration values from a request.
-func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *modelConfig {
-	config := &modelConfig{}
-
-	type chatConfig struct {
-		MaxOutputTokens *int64   `json:"maxOutputTokens,omitempty"`
-		Temperature     *float64 `json:"temperature,omitempty"`
-		TopP            *float64 `json:"topP,omitempty"`
-		ToolChoice      string   `json:"toolChoice,omitempty"`
-		ReasoningEffort *string  `json:"reasoningEffort,omitempty"`
-	}
-	parsed, ok := decodeConfig[chatConfig](input.Config)
+func (a *AzureAIFoundry) extractConfigFromRequest(input *ai.ModelRequest) *GenerationConfig {
+	config := &GenerationConfig{}
+	parsed, ok := decodeConfig[GenerationConfig](input.Config)
 	if !ok {
 		return config
 	}
-
-	config.maxTokens = parsed.MaxOutputTokens
-	config.temperature = parsed.Temperature
-	config.topP = parsed.TopP
-	config.toolChoice = parsed.ToolChoice
-	config.reasoningEffort = parsed.ReasoningEffort
-
-	return config
+	return &parsed
 }
 
 // buildChatCompletionParams builds OpenAI chat completion parameters from Genkit request
-func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model ModelDefinition) openai.ChatCompletionNewParams {
+func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model ModelDefinition) (openai.ChatCompletionNewParams, error) {
 	messages := a.convertMessagesToOpenAI(input.Messages)
 
 	params := openai.ChatCompletionNewParams{
@@ -283,18 +272,39 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 
 	// Apply configuration if provided
 	config := a.extractConfigFromRequest(input)
-	if config.maxTokens != nil {
-		params.MaxTokens = openai.Int(*config.maxTokens)
+	if config.TopK != nil {
+		return openai.ChatCompletionNewParams{}, fmt.Errorf("azureaifoundry: topK is not supported by Azure OpenAI chat completions")
+	}
+	if config.MaxOutputTokens != nil {
+		params.MaxTokens = openai.Int(*config.MaxOutputTokens)
 	} else if model.MaxTokens > 0 {
 		params.MaxTokens = openai.Int(int64(model.MaxTokens))
 	}
-	if config.temperature != nil {
-		params.Temperature = openai.Float(*config.temperature)
+	if len(config.StopSequences) > 0 {
+		params.Stop = openai.ChatCompletionNewParamsStopUnion{
+			OfStringArray: config.StopSequences,
+		}
 	}
-	if config.topP != nil {
-		params.TopP = openai.Float(*config.topP)
+	if config.Temperature != nil {
+		params.Temperature = openai.Float(*config.Temperature)
 	}
-	if config.reasoningEffort != nil {
+	if config.TopP != nil {
+		params.TopP = openai.Float(*config.TopP)
+	}
+	if config.Seed != nil {
+		params.Seed = openai.Int(*config.Seed)
+	}
+	if config.PresencePenalty != nil {
+		params.PresencePenalty = openai.Float(*config.PresencePenalty)
+	}
+	if config.FrequencyPenalty != nil {
+		params.FrequencyPenalty = openai.Float(*config.FrequencyPenalty)
+	}
+	if config.ParallelToolCalls != nil {
+		params.ParallelToolCalls = openai.Bool(*config.ParallelToolCalls)
+	}
+	params.ResponseFormat = responseFormatForOutput(input.Output)
+	if config.ReasoningEffort != nil {
 		// https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/reasoning?view=foundry-classic&tabs=REST%2Cgpt-5
 		reasoningEffortMap := map[string]openai.ReasoningEffort{
 			"low":     openai.ReasoningEffortLow,
@@ -304,7 +314,7 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 			"minimal": openai.ReasoningEffortMinimal,
 			"xhigh":   openai.ReasoningEffortXhigh,
 		}
-		if effort, ok := reasoningEffortMap[*config.reasoningEffort]; ok {
+		if effort, ok := reasoningEffortMap[*config.ReasoningEffort]; ok {
 			params.ReasoningEffort = effort
 		}
 		// Invalid values are ignored, maintaining the default behavior.
@@ -328,7 +338,7 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 		params.Tools = tools
 
 		// Set tool choice if specified in config
-		switch config.toolChoice {
+		switch config.ToolChoice {
 		case "auto":
 			params.ToolChoice = openai.ChatCompletionToolChoiceOptionUnionParam{
 				OfAuto: openai.String(string(openai.ChatCompletionToolChoiceOptionAutoAuto)),
@@ -344,7 +354,35 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 		}
 	}
 
-	return params
+	return params, nil
+}
+
+func responseFormatForOutput(output *ai.ModelOutputConfig) openai.ChatCompletionNewParamsResponseFormatUnion {
+	var format openai.ChatCompletionNewParamsResponseFormatUnion
+	if output == nil {
+		return format
+	}
+
+	switch output.Format {
+	case ai.OutputFormatJSON:
+		if output.Schema == nil || !output.Constrained {
+			jsonObject := shared.NewResponseFormatJSONObjectParam()
+			format.OfJSONObject = &jsonObject
+			return format
+		}
+		format.OfJSONSchema = &shared.ResponseFormatJSONSchemaParam{
+			JSONSchema: shared.ResponseFormatJSONSchemaJSONSchemaParam{
+				Name:   "output",
+				Schema: output.Schema,
+				Strict: openai.Bool(output.Constrained),
+			},
+		}
+	case ai.OutputFormatText:
+		text := shared.NewResponseFormatTextParam()
+		format.OfText = &text
+	}
+
+	return format
 }
 
 // generateTextSync handles synchronous text generation

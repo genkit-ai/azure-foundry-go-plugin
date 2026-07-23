@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.5.0...v1.6.0) (2026-07-23)
+
+### 🚀 Features
+
+* **generate:** expand per-call generation config ([#72](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/72)) ([610c095](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/610c0957bab4953c844d2abe4255dff191243f7b))
+
 ## [1.5.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.4.2...v1.5.0) (2026-07-22)
 
 ### 🚀 Features

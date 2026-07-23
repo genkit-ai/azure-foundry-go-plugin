@@ -216,16 +216,39 @@ func (a *AzureAIFoundry) generateSpeech(ctx context.Context, modelName string, i
 		return nil, err
 	}
 
-	// Return audio as base64-encoded text (following Genkit pattern)
+	// Return audio as a media data URL so media-aware Genkit consumers can
+	// identify and decode it without inspecting an untyped text part.
 	audioBase64 := base64.StdEncoding.EncodeToString(resp.Audio)
+	mimeType := speechMIMEType(req.ResponseFormat)
 
 	return &ai.ModelResponse{
 		Message: &ai.Message{
-			Role:    ai.RoleModel,
-			Content: []*ai.Part{ai.NewTextPart(audioBase64)},
+			Role: ai.RoleModel,
+			Content: []*ai.Part{
+				ai.NewMediaPart(mimeType, "data:"+mimeType+";base64,"+audioBase64),
+			},
 		},
 		FinishReason: ai.FinishReasonStop,
 	}, nil
+}
+
+func speechMIMEType(responseFormat string) string {
+	switch responseFormat {
+	case "", "mp3":
+		return "audio/mpeg"
+	case "opus":
+		return "audio/ogg"
+	case "aac":
+		return "audio/aac"
+	case "flac":
+		return "audio/flac"
+	case "wav":
+		return "audio/wav"
+	case "pcm":
+		return "audio/pcm"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // transcribeAudioFromRequest handles speech-to-text through Genkit's Generate interface

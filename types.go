@@ -54,6 +54,12 @@ type GenerationConfig struct {
 	ParallelToolCalls *bool    `json:"parallelToolCalls,omitempty"`
 }
 
+// EmbeddingConfig configures an individual embedding request.
+type EmbeddingConfig struct {
+	Dimensions     *int64 `json:"dimensions,omitempty"`
+	EncodingFormat string `json:"encoding_format,omitempty"`
+}
+
 // decodeConfig converts a request's Config into T via a JSON round-trip. Genkit delivers
 // Config as an untyped value that is usually a map[string]any decoded from JSON — so every
 // number is a float64 — but may also be a typed struct. Marshaling and unmarshaling into T

@@ -618,11 +618,16 @@ embedder := azurePlugin.DefineEmbedder(g, "text-embedding-3-small")
 // Or use common embedders helper
 embedders := azureaifoundry.DefineCommonEmbedders(azurePlugin, g)
 
-// Generate embeddings
-response, err := genkit.Embed(ctx, g,
-	ai.WithEmbedder(embedder),
-	ai.WithEmbedText("Azure AI Foundry provides powerful AI capabilities"),
-)
+dimensions := int64(256)
+response, err := embedder.Embed(ctx, &ai.EmbedRequest{
+	Input: []*ai.Document{
+		ai.DocumentFromText("Azure AI Foundry provides powerful AI capabilities", nil),
+		ai.DocumentFromText("Embedding inputs are sent in batches", nil),
+	},
+	Options: &azureaifoundry.EmbeddingConfig{
+		Dimensions: &dimensions,
+	},
+})
 
 if err != nil {
 	log.Fatal(err)
@@ -632,6 +637,11 @@ if err != nil {
 embedding := response.Embeddings[0].Embedding // []float32
 log.Printf("Embedding dimensions: %d", len(embedding))
 ```
+
+Non-empty documents are batched automatically, with up to 2,048 inputs per
+Azure request. `EmbeddingConfig` supports a positive `dimensions` value for
+`text-embedding-3-*` deployments. The optional `encoding_format` is limited to
+`"float"` because Genkit embedding responses are float vectors.
 
 ### 🎨 Image Generation
 
@@ -659,7 +669,7 @@ if err != nil {
 	log.Fatal(err)
 }
 
-log.Printf("Image URL: %s", response.Text())
+log.Printf("Image URL: %s", response.Media())
 ```
 
 ### 🗣️ Text-to-Speech
@@ -667,7 +677,10 @@ log.Printf("Image URL: %s", response.Text())
 Convert text to speech using the standard `genkit.Generate()` method:
 
 ```go
-import "encoding/base64"
+import (
+	"encoding/base64"
+	"strings"
+)
 
 // Define TTS model
 ttsModel := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
@@ -690,10 +703,16 @@ if err != nil {
 	log.Fatal(err)
 }
 
-// Decode base64 audio and save file
-audioData, _ := base64.StdEncoding.DecodeString(response.Text())
+// Decode the audio media data URL and save the file
+_, encodedAudio, _ := strings.Cut(response.Media(), ",")
+audioData, _ := base64.StdEncoding.DecodeString(encodedAudio)
 os.WriteFile("output.mp3", audioData, 0644)
 ```
+
+> **Breaking change:** generated images and speech are returned as media parts.
+> Use `response.Media()` or inspect `response.Message.Content` instead of relying
+> on the text shape. Genkit may still return the payload from `response.Text()`
+> when there is exactly one part, but media-aware consumers should use the media API.
 
 ### 🎙️ Speech-to-Text
 

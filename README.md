@@ -214,7 +214,7 @@ Pass generation settings with `ai.WithConfig`. JSON-compatible maps,
 | `presencePenalty` | number | Penalizes tokens that have already appeared |
 | `frequencyPenalty` | number | Penalizes tokens based on repetition frequency |
 | `parallelToolCalls` | boolean | Enables or disables parallel tool calls |
-| `toolChoice` | string | Tool-selection mode: `auto`, `required`, or `none` |
+| `toolChoice` | string | Tool-selection mode (`auto`, `required`, or `none`) or the exact name of a tool to force |
 | `reasoningEffort` | string | Reasoning level: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh` |
 
 ```go
@@ -238,6 +238,21 @@ response, err := genkit.Generate(ctx, g,
 `ai.WithOutputFormat(ai.OutputFormatJSON)` requests JSON-object mode. `ai.WithOutputType`
 or `ai.WithOutputSchema` uses native JSON Schema when Genkit marks the model as supporting
 constrained output; otherwise it uses JSON-object mode with Genkit's schema instructions.
+
+To force a specific tool, provide its exact, case-sensitive name. The named tool must also
+be included with `ai.WithTools`; otherwise generation returns a local configuration error.
+The values `auto`, `required`, and `none` remain reserved as selection modes.
+
+```go
+response, err := genkit.Generate(ctx, g,
+	ai.WithModel(gpt5Model),
+	ai.WithTools(weatherTool, stockTool),
+	ai.WithPrompt("What's the weather in London?"),
+	ai.WithConfig(map[string]any{
+		"toolChoice": "get_current_weather",
+	}),
+)
+```
 
 ## Azure Setup and Authentication
 

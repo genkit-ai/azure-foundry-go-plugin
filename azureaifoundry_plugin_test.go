@@ -147,6 +147,117 @@ func TestBuildChatCompletionParamsRejectsTopK(t *testing.T) {
 	}
 }
 
+func TestBuildChatCompletionParamsToolChoiceModes(t *testing.T) {
+	plugin := &AzureAIFoundry{}
+	tools := []*ai.ToolDefinition{{Name: "lookup"}}
+
+	for _, mode := range []string{"auto", "required", "none"} {
+		t.Run(mode, func(t *testing.T) {
+			params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+				Config: map[string]any{"toolChoice": mode},
+				Tools:  tools,
+			}, ModelDefinition{Name: "gpt-deployment"})
+			if err != nil {
+				t.Fatalf("buildChatCompletionParams() error = %v", err)
+			}
+			if !params.ToolChoice.OfAuto.Valid() || params.ToolChoice.OfAuto.Value != mode {
+				t.Fatalf("ToolChoice = %v, want %q mode", params.ToolChoice, mode)
+			}
+		})
+	}
+
+	t.Run("unset", func(t *testing.T) {
+		params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+			Tools: tools,
+		}, ModelDefinition{Name: "gpt-deployment"})
+		if err != nil {
+			t.Fatalf("buildChatCompletionParams() error = %v", err)
+		}
+		if params.ToolChoice.OfAuto.Valid() || params.ToolChoice.OfFunctionToolChoice != nil {
+			t.Fatalf("ToolChoice = %v, want omitted choice", params.ToolChoice)
+		}
+	})
+}
+
+func TestBuildChatCompletionParamsForcesNamedTool(t *testing.T) {
+	plugin := &AzureAIFoundry{}
+	tools := []*ai.ToolDefinition{
+		{Name: "lookup"},
+		{Name: "search"},
+	}
+	configs := map[string]any{
+		"map config": map[string]any{
+			"toolChoice": "lookup",
+		},
+		"typed config": GenerationConfig{
+			ToolChoice: "lookup",
+		},
+	}
+
+	for name, config := range configs {
+		t.Run(name, func(t *testing.T) {
+			params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+				Config: config,
+				Tools:  tools,
+			}, ModelDefinition{Name: "gpt-deployment"})
+			if err != nil {
+				t.Fatalf("buildChatCompletionParams() error = %v", err)
+			}
+
+			function := params.ToolChoice.GetFunction()
+			if function == nil || function.Name != "lookup" {
+				t.Fatalf("ToolChoice function = %#v, want lookup", function)
+			}
+
+			data, err := json.Marshal(params)
+			if err != nil {
+				t.Fatalf("json.Marshal(params) error = %v", err)
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(data, &payload); err != nil {
+				t.Fatalf("json.Unmarshal(payload) error = %v", err)
+			}
+			choice, ok := payload["tool_choice"].(map[string]any)
+			if !ok || choice["type"] != "function" {
+				t.Fatalf("tool_choice = %#v, want function choice", payload["tool_choice"])
+			}
+			selected, ok := choice["function"].(map[string]any)
+			if !ok || selected["name"] != "lookup" {
+				t.Fatalf("tool_choice.function = %#v, want lookup", choice["function"])
+			}
+		})
+	}
+}
+
+func TestBuildChatCompletionParamsRejectsUnknownNamedTool(t *testing.T) {
+	plugin := &AzureAIFoundry{}
+
+	t.Run("no tools", func(t *testing.T) {
+		_, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+			Config: map[string]any{"toolChoice": "lookup"},
+		}, ModelDefinition{Name: "gpt-deployment"})
+		if err == nil {
+			t.Fatal("buildChatCompletionParams() error = nil, want missing tool error")
+		}
+		if got, want := err.Error(), `azureaifoundry: toolChoice "lookup" requires a matching tool`; got != want {
+			t.Fatalf("buildChatCompletionParams() error = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("tool not found", func(t *testing.T) {
+		_, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+			Config: map[string]any{"toolChoice": "lookup"},
+			Tools:  []*ai.ToolDefinition{{Name: "search"}},
+		}, ModelDefinition{Name: "gpt-deployment"})
+		if err == nil {
+			t.Fatal("buildChatCompletionParams() error = nil, want unknown tool error")
+		}
+		if got, want := err.Error(), `azureaifoundry: toolChoice "lookup" does not match any provided tool`; got != want {
+			t.Fatalf("buildChatCompletionParams() error = %q, want %q", got, want)
+		}
+	})
+}
+
 func TestExtractConfigFromRequestAcceptsGenerationCommonConfig(t *testing.T) {
 	plugin := &AzureAIFoundry{}
 	config := plugin.extractConfigFromRequest(&ai.ModelRequest{

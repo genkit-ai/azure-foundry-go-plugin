@@ -351,10 +351,47 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 			params.ToolChoice = openai.ChatCompletionToolChoiceOptionUnionParam{
 				OfAuto: openai.String(string(openai.ChatCompletionToolChoiceOptionAutoNone)),
 			}
+		default:
+			if config.ToolChoice != "" {
+				if !hasToolNamed(input.Tools, config.ToolChoice) {
+					return openai.ChatCompletionNewParams{}, fmt.Errorf(
+						"azureaifoundry: toolChoice %q does not match any provided tool",
+						config.ToolChoice,
+					)
+				}
+				params.ToolChoice = openai.ToolChoiceOptionFunctionToolChoice(
+					openai.ChatCompletionNamedToolChoiceFunctionParam{
+						Name: config.ToolChoice,
+					},
+				)
+			}
 		}
+	} else if config.ToolChoice != "" && !isToolChoiceMode(config.ToolChoice) {
+		return openai.ChatCompletionNewParams{}, fmt.Errorf(
+			"azureaifoundry: toolChoice %q requires a matching tool",
+			config.ToolChoice,
+		)
 	}
 
 	return params, nil
+}
+
+func isToolChoiceMode(choice string) bool {
+	switch choice {
+	case "auto", "required", "none":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasToolNamed(tools []*ai.ToolDefinition, name string) bool {
+	for _, tool := range tools {
+		if tool != nil && tool.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func responseFormatForOutput(output *ai.ModelOutputConfig) openai.ChatCompletionNewParamsResponseFormatUnion {

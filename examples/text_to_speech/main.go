@@ -21,14 +21,24 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 	azureaifoundry "github.com/xavidop/genkit-azure-foundry-go"
 	"github.com/xavidop/genkit-azure-foundry-go/examples/common"
 )
+
+func decodeMediaDataURL(dataURL string) ([]byte, error) {
+	_, encoded, ok := strings.Cut(dataURL, ",")
+	if !ok {
+		return nil, fmt.Errorf("invalid media data URL")
+	}
+	return base64.StdEncoding.DecodeString(encoded)
+}
 
 func main() {
 	ctx := context.Background()
@@ -62,8 +72,8 @@ func main() {
 		log.Fatalf("Failed to generate speech: %v", err)
 	}
 
-	// Decode base64 audio and save to file
-	audioData, err := base64.StdEncoding.DecodeString(resp1.Text())
+	// Decode the audio media data URL and save it to a file.
+	audioData, err := decodeMediaDataURL(resp1.Media())
 	if err != nil {
 		log.Fatalf("Failed to decode audio: %v", err)
 	}
@@ -89,7 +99,7 @@ func main() {
 		log.Fatalf("Failed to generate speech: %v", err)
 	}
 
-	audioData2, err := base64.StdEncoding.DecodeString(resp2.Text())
+	audioData2, err := decodeMediaDataURL(resp2.Media())
 	if err != nil {
 		log.Fatalf("Failed to decode audio: %v", err)
 	}
@@ -120,7 +130,7 @@ func main() {
 		log.Fatalf("Failed to generate speech: %v", err)
 	}
 
-	audioData3, err := base64.StdEncoding.DecodeString(resp3.Text())
+	audioData3, err := decodeMediaDataURL(resp3.Media())
 	if err != nil {
 		log.Fatalf("Failed to decode audio: %v", err)
 	}

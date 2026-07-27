@@ -25,6 +25,7 @@ import (
 	"math"
 
 	"github.com/firebase/genkit/go/ai"
+	azureaifoundry "github.com/xavidop/genkit-azure-foundry-go"
 	"github.com/xavidop/genkit-azure-foundry-go/examples/common"
 )
 
@@ -60,7 +61,7 @@ func main() {
 	log.Println("Starting embeddings example...")
 
 	// Define embedding model (use your deployment name)
-	embedder := azurePlugin.DefineEmbedder(g, "text-embedding-ada-002") // Replace with your actual deployment name
+	embedder := azurePlugin.DefineEmbedder(g, "text-embedding-3-small") // Replace with your actual deployment name
 
 	// Example texts to embed
 	texts := []string{
@@ -70,28 +71,24 @@ func main() {
 		"Cloud computing enables scalable AI solutions.",
 	}
 
-	// Generate embeddings for all texts
-	var embeddings []*ai.Embedding
-	for _, text := range texts {
-		log.Printf("Generating embedding for: %s", text)
-
-		// Create embed request
-		embedRequest := &ai.EmbedRequest{
-			Input: []*ai.Document{
-				ai.DocumentFromText(text, nil),
-			},
-		}
-
-		// Call the embedder directly
-		embedResponse, err := embedder.Embed(ctx, embedRequest)
-		if err != nil {
-			log.Fatalf("Error generating embedding: %v", err)
-		}
-
-		if len(embedResponse.Embeddings) > 0 {
-			embeddings = append(embeddings, embedResponse.Embeddings[0])
-			log.Printf("✓ Generated embedding with dimension: %d", len(embedResponse.Embeddings[0].Embedding))
-		}
+	// Generate all embeddings in one batched request.
+	documents := make([]*ai.Document, len(texts))
+	for i, text := range texts {
+		documents[i] = ai.DocumentFromText(text, nil)
+	}
+	dimensions := int64(256)
+	embedResponse, err := embedder.Embed(ctx, &ai.EmbedRequest{
+		Input: documents,
+		Options: &azureaifoundry.EmbeddingConfig{
+			Dimensions: &dimensions,
+		},
+	})
+	if err != nil {
+		log.Fatalf("Error generating embeddings: %v", err)
+	}
+	embeddings := embedResponse.Embeddings
+	for i, embedding := range embeddings {
+		log.Printf("✓ Generated embedding %d with dimension: %d", i+1, len(embedding.Embedding))
 	}
 
 	// Calculate and display similarities between texts

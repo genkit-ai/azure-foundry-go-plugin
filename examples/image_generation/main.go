@@ -61,7 +61,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate image: %v", err)
 	}
-	log.Printf("Generated image URL: %s", resp1.Text())
+	log.Printf("Generated image URL: %s", resp1.Media())
 
 	// Example 2: Generate HD quality image
 	log.Println("\n=== Example 2: HD quality image ===")
@@ -79,7 +79,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to generate image: %v", err)
 	}
-	log.Printf("Generated HD image URL: %s", resp2.Text())
+	log.Printf("Generated HD image URL: %s", resp2.Media())
 
 	log.Println("\n✅ Image generation with genkit.Generate() completed successfully!")
 }

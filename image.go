@@ -20,6 +20,7 @@ package azureaifoundry
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/openai/openai-go/v3"
@@ -159,9 +160,13 @@ func (a *AzureAIFoundry) generateImages(ctx context.Context, modelName string, i
 	var content []*ai.Part
 	for _, img := range resp.Images {
 		if img.URL != "" {
-			content = append(content, ai.NewTextPart(img.URL))
+			content = append(content, ai.NewMediaPart("image/png", img.URL))
 		} else if img.B64JSON != "" {
-			content = append(content, ai.NewTextPart(img.B64JSON))
+			dataURL := img.B64JSON
+			if !strings.HasPrefix(dataURL, "data:") {
+				dataURL = "data:image/png;base64," + dataURL
+			}
+			content = append(content, ai.NewMediaPart("image/png", dataURL))
 		}
 	}
 

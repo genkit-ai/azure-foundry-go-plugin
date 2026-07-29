@@ -24,10 +24,133 @@ import (
 	"github.com/firebase/genkit/go/genkit"
 )
 
+type modelCapability struct {
+	families   []string
+	media      bool
+	tools      bool
+	toolChoice bool
+	output     []string
+}
+
+// modelCapabilities contains metadata for well-known Azure OpenAI deployment
+// families. Entries are ordered from most specific to least specific so broad
+// families such as gpt-4 do not capture gpt-4o or gpt-4-turbo deployments.
+var modelCapabilities = []modelCapability{
+	{
+		families:   []string{"gpt-5", "gpt-5-mini", "gpt-5-nano"},
+		media:      true,
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families: []string{
+			"gpt-5.1",
+			"gpt-5.2",
+			"gpt-5.4",
+			"gpt-5.4-mini",
+			"gpt-5.4-nano",
+			"gpt-5.5",
+		},
+		media:      true,
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families: []string{
+			"gpt-5.1-chat",
+			"gpt-5.2-chat",
+			"gpt-5.3-chat",
+			"gpt-chat-latest",
+		},
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families:   []string{"gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano"},
+		media:      true,
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families:   []string{"gpt-4o", "gpt-4o-mini"},
+		media:      true,
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families:   []string{"gpt-4-turbo", "gpt-4-turbo-preview"},
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families: []string{"gpt-4-vision", "gpt-4-vision-preview", "gpt-4-1106-vision-preview"},
+		media:    true,
+		output:   []string{"text"},
+	},
+	{
+		families:   []string{"gpt-4-1106-preview", "gpt-4-0125-preview"},
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families:   []string{"gpt-4", "gpt-4-32k"},
+		tools:      true,
+		toolChoice: false,
+		output:     []string{"text"},
+	},
+	{
+		families:   []string{"gpt-35-turbo-1106", "gpt-35-turbo-0125"},
+		tools:      true,
+		toolChoice: true,
+		output:     []string{"text", "json"},
+	},
+	{
+		families:   []string{"gpt-35-turbo", "gpt-35-turbo-16k"},
+		tools:      true,
+		toolChoice: false,
+		output:     []string{"text"},
+	},
+}
+
+type embedderCapability struct {
+	family     string
+	dimensions int
+}
+
+var embedderCapabilities = []embedderCapability{
+	{family: "text-embedding-ada-002", dimensions: 1536},
+	{family: "text-embedding-3-small", dimensions: 1536},
+	{family: "text-embedding-3-large", dimensions: 3072},
+}
+
 // inferModelCapabilities infers model capabilities based on model info.
 func (a *AzureAIFoundry) inferModelCapabilities(modelName string, supportsMedia bool) *ai.ModelInfo {
-	// Detect tool support based on model name
-	supportsTools := supportsToolCalling(modelName)
+	if !isNonChatModelName(modelName) {
+		if capability, ok := lookupModelCapability(modelName); ok {
+			return &ai.ModelInfo{
+				Label: modelName,
+				Supports: &ai.ModelSupports{
+					Multiturn:  true,
+					Tools:      capability.tools,
+					ToolChoice: capability.toolChoice,
+					SystemRole: true,
+					Media:      capability.media || supportsMedia,
+					Output:     append([]string(nil), capability.output...),
+				},
+			}
+		}
+	}
+
+	// Preserve the previous substring-based behavior for unknown and custom
+	// deployment names.
+	supportsTools := supportsToolCallingFallback(modelName)
 	return &ai.ModelInfo{
 		Label: modelName,
 		Supports: &ai.ModelSupports{
@@ -39,16 +162,84 @@ func (a *AzureAIFoundry) inferModelCapabilities(modelName string, supportsMedia 
 	}
 }
 
-func supportsToolCalling(modelName string) bool {
-	modelLower := strings.ToLower(modelName)
-	if strings.Contains(modelLower, "tts") ||
-		strings.Contains(modelLower, "transcribe") ||
-		strings.Contains(modelLower, "image") {
+func lookupModelCapability(modelName string) (modelCapability, bool) {
+	normalized := strings.ToLower(modelName)
+	for _, capability := range modelCapabilities {
+		for _, family := range capability.families {
+			if matchesModelFamily(normalized, family) {
+				return capability, true
+			}
+		}
+	}
+	return modelCapability{}, false
+}
+
+func matchesModelFamily(modelName, family string) bool {
+	if modelName == family {
+		return true
+	}
+	suffix := strings.TrimPrefix(modelName, family+"-")
+	if suffix == modelName {
+		return false
+	}
+	return isDateVersion(suffix) || isLegacyVersion(suffix)
+}
+
+func isDateVersion(version string) bool {
+	if len(version) != len("2006-01-02") || version[4] != '-' || version[7] != '-' {
+		return false
+	}
+	for i, char := range version {
+		if i == 4 || i == 7 {
+			continue
+		}
+		if char < '0' || char > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func isLegacyVersion(version string) bool {
+	switch version {
+	case "0301", "0314", "0613", "1106", "0125":
+		return true
+	default:
+		return false
+	}
+}
+
+func supportsToolCallingFallback(modelName string) bool {
+	if isNonChatModelName(modelName) {
 		return false
 	}
 
+	modelLower := strings.ToLower(modelName)
 	return strings.Contains(modelLower, "gpt") ||
 		strings.Contains(modelLower, "kimi")
+}
+
+func isNonChatModelName(modelName string) bool {
+	modelLower := strings.ToLower(modelName)
+	return strings.Contains(modelLower, "tts") ||
+		strings.Contains(modelLower, "transcribe") ||
+		strings.Contains(modelLower, "image")
+}
+
+func inferEmbedderOptions(modelName string) *ai.EmbedderOptions {
+	normalized := strings.ToLower(modelName)
+	for _, capability := range embedderCapabilities {
+		if normalized == capability.family {
+			return &ai.EmbedderOptions{
+				Label: provider + "-" + modelName,
+				Supports: &ai.EmbedderSupports{
+					Input: []string{"text"},
+				},
+				Dimensions: capability.dimensions,
+			}
+		}
+	}
+	return nil
 }
 
 // DefineCommonModels is a helper to define commonly used Azure OpenAI models

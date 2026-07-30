@@ -94,7 +94,7 @@ var modelCapabilities = []modelCapability{
 		output:   []string{"text"},
 	},
 	{
-		families:   []string{"gpt-4-1106-preview", "gpt-4-0125-preview"},
+		families:   []string{"gpt-4-1106-preview", "gpt-4-0125-preview", "gpt-4-1106", "gpt-4-0125"},
 		tools:      true,
 		toolChoice: true,
 		output:     []string{"text", "json"},
@@ -223,6 +223,8 @@ func isNonChatModelName(modelName string) bool {
 	modelLower := strings.ToLower(modelName)
 	return strings.Contains(modelLower, "tts") ||
 		strings.Contains(modelLower, "transcribe") ||
+		strings.Contains(modelLower, "whisper") ||
+		strings.Contains(modelLower, "dall-e") ||
 		strings.Contains(modelLower, "image")
 }
 

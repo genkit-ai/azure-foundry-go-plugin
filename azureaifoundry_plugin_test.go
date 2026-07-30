@@ -135,6 +135,20 @@ func TestInferModelCapabilitiesUsesRegistryAndFallback(t *testing.T) {
 			wantOutput:     []string{"text", "json"},
 		},
 		{
+			name:           "gpt 4 turbo 1106 version without preview suffix",
+			modelName:      "gpt-4-1106",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4 turbo 0125 version without preview suffix",
+			modelName:      "gpt-4-0125",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
 			name:       "gpt 4 vision preview",
 			modelName:  "gpt-4-vision-preview",
 			wantMedia:  true,
@@ -191,6 +205,14 @@ func TestInferModelCapabilitiesUsesRegistryAndFallback(t *testing.T) {
 		{
 			name:      "gpt image model does not support tools",
 			modelName: "gpt-image-1",
+		},
+		{
+			name:      "gpt whisper deployment does not support tools",
+			modelName: "gpt-whisper-1",
+		},
+		{
+			name:      "gpt dall-e deployment does not support tools",
+			modelName: "gpt-dall-e-3",
 		},
 		{
 			name:          "media flag augments known text model",

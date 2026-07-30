@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.8.0...v1.9.0) (2026-07-30)
+
+### 🚀 Features
+
+* add model capability registry ([#77](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/77)) ([e4916f3](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/e4916f3b0e9eba29d5f048ec6712a49e4c7925fe))
+
 ## [1.8.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.7.0...v1.8.0) (2026-07-27)
 
 ### 🚀 Features

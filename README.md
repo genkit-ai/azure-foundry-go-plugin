@@ -455,6 +455,48 @@ compatibility.
 `MaxTokens` sets the model's default maximum output-token count. A per-call
 `maxOutputTokens` configuration value takes precedence when provided.
 
+### Model capability inference
+
+When `DefineModel` is called without an explicit `ai.ModelInfo`, the plugin uses
+a small registry for common Azure OpenAI deployment families:
+
+| Model family | Media input | Tools and tool choice | Output |
+| --- | --- | --- | --- |
+| GPT-5, GPT-5.1, GPT-5.2, GPT-5.4, and GPT-5.5 | Yes | Yes | Text, JSON |
+| GPT-5 chat variants | No | Yes | Text, JSON |
+| GPT-4.1 | Yes | Yes | Text, JSON |
+| GPT-4o | Yes | Yes | Text, JSON |
+| GPT-4 Turbo | Opt in | Yes | Text, JSON |
+| GPT-4 Vision preview | Yes | No | Text |
+| GPT-4 Turbo 1106/0125 previews | No | Yes | Text, JSON |
+| GPT-4 | No | Tools only | Text |
+| GPT-3.5 Turbo 1106/0125 | No | Yes | Text, JSON |
+| Other GPT-3.5 Turbo versions | No | Tools only | Text |
+
+Canonical names, dated versions, and common family variants are recognized
+case-insensitively. Azure deployment names can be arbitrary, so unrecognized
+names continue to use the previous name-based heuristic. `SupportsMedia: true`
+can enable media metadata for a custom deployment or a standard GPT-4 Turbo
+deployment, and passing an explicit `ai.ModelInfo` remains the way to fully
+override inferred capabilities. GPT-4 Turbo media support is not inferred
+because Azure provisioned deployments of that model are text-only.
+GPT-4 and older or ambiguous GPT-3.5 Turbo deployments are intentionally
+conservative because JSON mode and `tool_choice` support depend on the deployed
+model snapshot.
+
+Known embedding deployments also publish their default dimensions:
+
+| Embedding family | Default dimensions |
+| --- | ---: |
+| `text-embedding-ada-002` | 1,536 |
+| `text-embedding-3-small` | 1,536 |
+| `text-embedding-3-large` | 3,072 |
+
+Genkit's current model metadata has no numeric context-window or maximum-output
+field, so the plugin does not publish or enforce those model limits. Use
+`ModelDefinition.MaxTokens` only when you want a default output-token cap for a
+specific deployment.
+
 ## Examples Directory
 
 The repository includes comprehensive examples:

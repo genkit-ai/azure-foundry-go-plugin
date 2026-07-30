@@ -141,7 +141,7 @@ func (a *AzureAIFoundry) DefineEmbedder(g *genkit.Genkit, modelName string) ai.E
 		panic("azureaifoundry: Init not called")
 	}
 
-	return genkit.DefineEmbedder(g, api.NewName(provider, modelName), nil, func(
+	return genkit.DefineEmbedder(g, api.NewName(provider, modelName), inferEmbedderOptions(modelName), func(
 		ctx context.Context,
 		req *ai.EmbedRequest,
 	) (*ai.EmbedResponse, error) {

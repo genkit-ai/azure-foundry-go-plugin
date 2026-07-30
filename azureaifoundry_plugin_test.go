@@ -18,34 +18,181 @@
 package azureaifoundry
 
 import (
+	"context"
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/firebase/genkit/go/ai"
+	"github.com/firebase/genkit/go/core/api"
+	"github.com/firebase/genkit/go/genkit"
 )
 
-func TestInferModelCapabilitiesDetectsToolCallingModels(t *testing.T) {
+func TestInferModelCapabilitiesUsesRegistryAndFallback(t *testing.T) {
 	plugin := &AzureAIFoundry{}
 
 	tests := []struct {
-		name      string
-		modelName string
-		wantTools bool
-		wantMedia bool
+		name           string
+		modelName      string
+		supportsMedia  bool
+		wantTools      bool
+		wantToolChoice bool
+		wantMedia      bool
+		wantOutput     []string
 	}{
 		{
-			name:      "gpt model supports tools",
-			modelName: "gpt-5",
-			wantTools: true,
+			name:           "gpt 5 family",
+			modelName:      "gpt-5-mini",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
 		},
 		{
-			name:      "kimi model supports tools",
+			name:           "gpt 5 dated version",
+			modelName:      "GPT-5-2025-08-07",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 5 dot version",
+			modelName:      "gpt-5.2-2025-12-11",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 5.1 family",
+			modelName:      "gpt-5.1",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "latest gpt 5 mini variant",
+			modelName:      "gpt-5.4-mini-2026-03-17",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 5.5 family",
+			modelName:      "gpt-5.5-2026-04-24",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 5 chat variant",
+			modelName:      "gpt-5.3-chat-2026-03-03",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4.1 family",
+			modelName:      "gpt-4.1-mini-2025-04-14",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4o family",
+			modelName:      "GPT-4O-2024-11-20",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4 turbo explicit media support",
+			modelName:      "gpt-4-turbo-2024-04-09",
+			supportsMedia:  true,
+			wantTools:      true,
+			wantToolChoice: true,
+			wantMedia:      true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4 turbo defaults to text for deployment compatibility",
+			modelName:      "gpt-4-turbo-2024-04-09",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4 turbo text preview",
+			modelName:      "gpt-4-1106-preview",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4 turbo 1106 version without preview suffix",
+			modelName:      "gpt-4-1106",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:           "gpt 4 turbo 0125 version without preview suffix",
+			modelName:      "gpt-4-0125",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:       "gpt 4 vision preview",
+			modelName:  "gpt-4-vision-preview",
+			wantMedia:  true,
+			wantOutput: []string{"text"},
+		},
+		{
+			name:       "legacy gpt 4 family",
+			modelName:  "gpt-4-0613",
+			wantTools:  true,
+			wantOutput: []string{"text"},
+		},
+		{
+			name:           "modern gpt 35 turbo family",
+			modelName:      "gpt-35-turbo-0125",
+			wantTools:      true,
+			wantToolChoice: true,
+			wantOutput:     []string{"text", "json"},
+		},
+		{
+			name:       "legacy gpt 35 turbo family",
+			modelName:  "gpt-35-turbo-0613",
+			wantTools:  true,
+			wantOutput: []string{"text"},
+		},
+		{
+			name:      "unknown kimi model keeps tool fallback",
 			modelName: "Kimi-K2.6",
 			wantTools: true,
 		},
 		{
-			name:      "non tool model does not support tools",
-			modelName: "dall-e-3",
+			name:          "custom gpt deployment keeps fallback and media flag",
+			modelName:     "production-gpt-deployment",
+			supportsMedia: true,
+			wantTools:     true,
+			wantMedia:     true,
+		},
+		{
+			name:      "numeric custom suffix uses fallback",
+			modelName: "gpt-4-123-prod",
+			wantTools: true,
+		},
+		{
+			name:      "unknown model keeps conservative fallback",
+			modelName: "custom-deployment",
 		},
 		{
 			name:      "gpt tts model does not support tools",
@@ -60,23 +207,117 @@ func TestInferModelCapabilitiesDetectsToolCallingModels(t *testing.T) {
 			modelName: "gpt-image-1",
 		},
 		{
-			name:      "media flag is preserved",
-			modelName: "gpt-4o",
-			wantTools: true,
-			wantMedia: true,
+			name:      "gpt whisper deployment does not support tools",
+			modelName: "gpt-whisper-1",
+		},
+		{
+			name:      "gpt dall-e deployment does not support tools",
+			modelName: "gpt-dall-e-3",
+		},
+		{
+			name:          "media flag augments known text model",
+			modelName:     "gpt-4",
+			supportsMedia: true,
+			wantTools:     true,
+			wantMedia:     true,
+			wantOutput:    []string{"text"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			info := plugin.inferModelCapabilities(tt.modelName, tt.wantMedia)
+			info := plugin.inferModelCapabilities(tt.modelName, tt.supportsMedia)
 			if info.Supports.Tools != tt.wantTools {
 				t.Fatalf("Tools = %v, want %v", info.Supports.Tools, tt.wantTools)
+			}
+			if info.Supports.ToolChoice != tt.wantToolChoice {
+				t.Fatalf("ToolChoice = %v, want %v", info.Supports.ToolChoice, tt.wantToolChoice)
 			}
 			if info.Supports.Media != tt.wantMedia {
 				t.Fatalf("Media = %v, want %v", info.Supports.Media, tt.wantMedia)
 			}
+			if !slices.Equal(info.Supports.Output, tt.wantOutput) {
+				t.Fatalf("Output = %v, want %v", info.Supports.Output, tt.wantOutput)
+			}
+			if !info.Supports.Multiturn {
+				t.Fatal("Multiturn = false, want true")
+			}
+			if !info.Supports.SystemRole {
+				t.Fatal("SystemRole = false, want true")
+			}
 		})
+	}
+}
+
+func TestDefineModelExplicitInfoOverridesRegistry(t *testing.T) {
+	plugin := &AzureAIFoundry{initted: true}
+	g := genkit.Init(context.Background())
+
+	model := plugin.DefineModel(g, ModelDefinition{Name: "gpt-5"}, &ai.ModelInfo{
+		Supports: &ai.ModelSupports{
+			Tools:      false,
+			ToolChoice: false,
+			Media:      false,
+			Output:     []string{"text"},
+		},
+	})
+
+	metadata := model.(api.Action).Desc().Metadata["model"].(map[string]any)
+	supports := metadata["supports"].(map[string]any)
+	if supports["tools"] != false || supports["toolChoice"] != false || supports["media"] != false {
+		t.Fatalf("explicit supports metadata was not preserved: %#v", supports)
+	}
+	if output, _ := supports["output"].([]string); !slices.Equal(output, []string{"text"}) {
+		t.Fatalf("Output = %v, want [text]", output)
+	}
+}
+
+func TestInferEmbedderOptions(t *testing.T) {
+	tests := []struct {
+		modelName      string
+		wantDimensions int
+		wantKnown      bool
+	}{
+		{modelName: "text-embedding-ada-002", wantDimensions: 1536, wantKnown: true},
+		{modelName: "TEXT-EMBEDDING-3-SMALL", wantDimensions: 1536, wantKnown: true},
+		{modelName: "text-embedding-3-large", wantDimensions: 3072, wantKnown: true},
+		{modelName: "custom-embedding-deployment"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.modelName, func(t *testing.T) {
+			opts := inferEmbedderOptions(tt.modelName)
+			if !tt.wantKnown {
+				if opts != nil {
+					t.Fatalf("inferEmbedderOptions() = %#v, want nil", opts)
+				}
+				return
+			}
+			if opts == nil {
+				t.Fatal("inferEmbedderOptions() = nil, want options")
+			}
+			if opts.Dimensions != tt.wantDimensions {
+				t.Fatalf("Dimensions = %d, want %d", opts.Dimensions, tt.wantDimensions)
+			}
+			if opts.Supports == nil || !slices.Equal(opts.Supports.Input, []string{"text"}) {
+				t.Fatalf("Supports.Input = %v, want [text]", opts.Supports)
+			}
+		})
+	}
+}
+
+func TestDefineEmbedderPublishesKnownMetadata(t *testing.T) {
+	plugin := &AzureAIFoundry{initted: true}
+	g := genkit.Init(context.Background())
+
+	embedder := plugin.DefineEmbedder(g, "text-embedding-3-large")
+	info := embedder.(api.Action).Desc().Metadata["info"].(map[string]any)
+	if info["dimensions"] != 3072 {
+		t.Fatalf("dimensions = %v, want 3072", info["dimensions"])
+	}
+	supports := info["supports"].(map[string]any)
+	if input, _ := supports["input"].([]string); !slices.Equal(input, []string{"text"}) {
+		t.Fatalf("supports.input = %v, want [text]", input)
 	}
 }
 
@@ -152,7 +393,7 @@ func TestBuildChatCompletionParamsToolChoiceModes(t *testing.T) {
 	tools := []*ai.ToolDefinition{{Name: "lookup"}}
 
 	for _, mode := range []string{"auto", "required", "none"} {
-		t.Run(mode, func(t *testing.T) {
+		t.Run("config "+mode, func(t *testing.T) {
 			params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
 				Config: map[string]any{"toolChoice": mode},
 				Tools:  tools,
@@ -164,7 +405,34 @@ func TestBuildChatCompletionParamsToolChoiceModes(t *testing.T) {
 				t.Fatalf("ToolChoice = %v, want %q mode", params.ToolChoice, mode)
 			}
 		})
+
+		t.Run("model request "+mode, func(t *testing.T) {
+			params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+				ToolChoice: ai.ToolChoice(mode),
+				Tools:      tools,
+			}, ModelDefinition{Name: "gpt-deployment"})
+			if err != nil {
+				t.Fatalf("buildChatCompletionParams() error = %v", err)
+			}
+			if !params.ToolChoice.OfAuto.Valid() || params.ToolChoice.OfAuto.Value != mode {
+				t.Fatalf("ToolChoice = %v, want %q mode", params.ToolChoice, mode)
+			}
+		})
 	}
+
+	t.Run("config takes precedence", func(t *testing.T) {
+		params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{
+			Config:     map[string]any{"toolChoice": "required"},
+			ToolChoice: ai.ToolChoiceNone,
+			Tools:      tools,
+		}, ModelDefinition{Name: "gpt-deployment"})
+		if err != nil {
+			t.Fatalf("buildChatCompletionParams() error = %v", err)
+		}
+		if !params.ToolChoice.OfAuto.Valid() || params.ToolChoice.OfAuto.Value != "required" {
+			t.Fatalf("ToolChoice = %v, want config value %q", params.ToolChoice, "required")
+		}
+	})
 
 	t.Run("unset", func(t *testing.T) {
 		params, err := plugin.buildChatCompletionParams(&ai.ModelRequest{

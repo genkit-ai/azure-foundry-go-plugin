@@ -320,6 +320,10 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 		// Invalid values are ignored, maintaining the default behavior.
 	}
 	// Handle tools
+	toolChoice := config.ToolChoice
+	if toolChoice == "" {
+		toolChoice = string(input.ToolChoice)
+	}
 	if len(input.Tools) > 0 {
 		var tools []openai.ChatCompletionToolUnionParam
 		for _, tool := range input.Tools {
@@ -338,7 +342,7 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 		params.Tools = tools
 
 		// Set tool choice if specified in config
-		switch config.ToolChoice {
+		switch toolChoice {
 		case "auto":
 			params.ToolChoice = openai.ChatCompletionToolChoiceOptionUnionParam{
 				OfAuto: openai.String(string(openai.ChatCompletionToolChoiceOptionAutoAuto)),
@@ -352,24 +356,24 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 				OfAuto: openai.String(string(openai.ChatCompletionToolChoiceOptionAutoNone)),
 			}
 		default:
-			if config.ToolChoice != "" {
-				if !hasToolNamed(input.Tools, config.ToolChoice) {
+			if toolChoice != "" {
+				if !hasToolNamed(input.Tools, toolChoice) {
 					return openai.ChatCompletionNewParams{}, fmt.Errorf(
 						"azureaifoundry: toolChoice %q does not match any provided tool",
-						config.ToolChoice,
+						toolChoice,
 					)
 				}
 				params.ToolChoice = openai.ToolChoiceOptionFunctionToolChoice(
 					openai.ChatCompletionNamedToolChoiceFunctionParam{
-						Name: config.ToolChoice,
+						Name: toolChoice,
 					},
 				)
 			}
 		}
-	} else if config.ToolChoice != "" && !isToolChoiceMode(config.ToolChoice) {
+	} else if toolChoice != "" && !isToolChoiceMode(toolChoice) {
 		return openai.ChatCompletionNewParams{}, fmt.Errorf(
 			"azureaifoundry: toolChoice %q requires a matching tool",
-			config.ToolChoice,
+			toolChoice,
 		)
 	}
 

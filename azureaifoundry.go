@@ -123,9 +123,10 @@ func (a *AzureAIFoundry) DefineModel(g *genkit.Genkit, model ModelDefinition, in
 	}
 
 	// Create the model function
-	return genkit.DefineModel(g, api.NewName(provider, model.Name), meta, func(
+	return genkit.DefineModelAction(g, api.NewName(provider, model.Name), meta, func(
 		ctx context.Context,
 		input *ai.ModelRequest,
+		_ any,
 		cb func(context.Context, *ai.ModelResponseChunk) error,
 	) (*ai.ModelResponse, error) {
 		return a.generateText(ctx, model, input, cb)
@@ -141,9 +142,10 @@ func (a *AzureAIFoundry) DefineEmbedder(g *genkit.Genkit, modelName string) ai.E
 		panic("azureaifoundry: Init not called")
 	}
 
-	return genkit.DefineEmbedder(g, api.NewName(provider, modelName), inferEmbedderOptions(modelName), func(
+	return genkit.DefineEmbedderAction(g, api.NewName(provider, modelName), inferEmbedderOptions(modelName), func(
 		ctx context.Context,
 		req *ai.EmbedRequest,
+		_ any,
 	) (*ai.EmbedResponse, error) {
 		return a.embed(ctx, modelName, req)
 	})

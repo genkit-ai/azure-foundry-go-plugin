@@ -37,6 +37,7 @@ func testPluginForServer(server *httptest.Server) *AzureAIFoundry {
 	return &AzureAIFoundry{
 		client: openai.NewClient(
 			option.WithBaseURL(server.URL+"/"),
+			option.WithUnsafeAllowHTTP(),
 			option.WithAPIKey("test"),
 		),
 		initted: true,

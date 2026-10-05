@@ -145,6 +145,7 @@ func TestGenerateTextStreamReasoningFinishUsage(t *testing.T) {
 	a := &AzureAIFoundry{}
 	a.client = openai.NewClient(
 		option.WithBaseURL(server.URL+"/"),
+		option.WithUnsafeAllowHTTP(),
 		option.WithAPIKey("test"),
 	)
 

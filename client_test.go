@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -294,7 +295,7 @@ func TestClientOptionsValidatesEndpoints(t *testing.T) {
 func TestInitPanicsOnInvalidFoundryEndpoint(t *testing.T) {
 	defer func() {
 		r := recover()
-		if r == nil || !strings.HasPrefix(r.(string), "azureaifoundry: ") {
+		if r == nil || !strings.HasPrefix(fmt.Sprint(r), "azureaifoundry: ") {
 			t.Fatalf("recover() = %v, want an azureaifoundry panic", r)
 		}
 	}()

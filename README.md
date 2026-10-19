@@ -24,6 +24,7 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 			- [4. Client Secret Credential (Service Principal)](#4-client-secret-credential-service-principal)
 			- [5. Azure CLI Credential (Local Development)](#5-azure-cli-credential-local-development)
 		- [Model Deployments](#model-deployments)
+		- [Microsoft Foundry Models (OpenAI v1 endpoint)](#microsoft-foundry-models-openai-v1-endpoint)
 	- [Examples Directory](#examples-directory)
 		- [Running Examples](#running-examples)
 	- [Features in Detail](#features-in-detail)
@@ -193,10 +194,11 @@ azurePlugin := &azureaifoundry.AzureAIFoundry{
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `Endpoint` | `string` | *required* | Azure OpenAI endpoint URL |
+| `Endpoint` | `string` | "" | Azure OpenAI resource endpoint URL. Set this or `FoundryEndpoint` |
+| `FoundryEndpoint` | `string` | "" | Microsoft Foundry resource endpoint URL, served through its OpenAI v1 route. Set this or `Endpoint` |
 | `APIKey` | `string` | "" | API key for authentication |
 | `Credential` | `azcore.TokenCredential` | `nil` | Azure credential (alternative to API key) |
-| `APIVersion` | `string` | Latest | API version to use |
+| `APIVersion` | `string` | `2025-03-01-preview` with `Endpoint`; omitted with `FoundryEndpoint` | API version to use |
 
 ### Per-call Generation Configuration
 
@@ -454,6 +456,46 @@ compatibility.
 
 `MaxTokens` sets the model's default maximum output-token count. A per-call
 `maxOutputTokens` configuration value takes precedence when provided.
+
+### Microsoft Foundry Models (OpenAI v1 endpoint)
+
+`Endpoint` targets an Azure OpenAI resource and sends each request to
+`{endpoint}/openai/deployments/{deployment}/...?api-version=...`. To reach the
+wider Foundry Models catalog sold by Azure (for example DeepSeek, Llama,
+Mistral, and Grok), set `FoundryEndpoint` instead. Requests then go to the
+resource's OpenAI v1 route, `{endpoint}/openai/v1/...`, with the deployment
+name sent in the request's `model` field:
+
+```go
+azurePlugin := &azureaifoundry.AzureAIFoundry{
+	FoundryEndpoint: "https://<resource>.services.ai.azure.com",
+	APIKey:          os.Getenv("AZURE_FOUNDRY_API_KEY"),
+	// Or: Credential: credential, // Microsoft Entra ID
+}
+
+deepseek := azurePlugin.DefineModel(g, azureaifoundry.ModelDefinition{
+	Name: "DeepSeek-V3.1", // Your deployment name
+	Type: azureaifoundry.ModelTypeChat,
+}, &ai.ModelInfo{
+	Supports: &ai.ModelSupports{Multiturn: true, SystemRole: true, Tools: true},
+})
+```
+
+- Both `https://<resource>.services.ai.azure.com` and
+  `https://<resource>.openai.azure.com` resource endpoints are accepted, with or
+  without the `/openai/v1` suffix.
+- The v1 route uses implicit versioning, so no `api-version` is sent unless
+  `APIVersion` is set (for example, `"preview"` for preview features).
+- API keys are sent as bearer tokens. Token credentials request the
+  `https://ai.azure.com/.default` scope. Set exactly one of `Endpoint` or
+  `FoundryEndpoint`; setting both is an error.
+- Capability inference only recognizes OpenAI model families. For other
+  Foundry Models, pass an explicit `ai.ModelInfo` describing what the model
+  supports (for example, tool calling).
+
+The plugin uses the OpenAI v1 route rather than the Azure AI Model Inference
+(`/models`) route, which Microsoft deprecated together with the Azure AI
+Inference beta SDK in favor of the OpenAI v1 API.
 
 ### Model capability inference
 
@@ -796,9 +838,9 @@ log.Printf("Transcription: %s", response.Text())
 
 ### Common Issues
 
-1. **"Endpoint is required" Error**
+1. **"an Endpoint or FoundryEndpoint is required" Error**
    - Verify `AZURE_OPENAI_ENDPOINT` is set correctly
-   - Ensure the endpoint URL includes `https://` and trailing `/`
+   - Ensure the endpoint URL includes `https://`
 
 2. **"Deployment not found" Error**
    - Check that the deployment name in your code matches the actual deployment name in Azure

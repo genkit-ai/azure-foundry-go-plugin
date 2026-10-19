@@ -30,7 +30,7 @@ This project and everyone participating in it is governed by our commitment to c
 
 ### Prerequisites
 
-- Go 1.24 or later
+- Go 1.26 or later
 - Git
 - Azure OpenAI access (for testing)
 

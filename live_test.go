@@ -294,9 +294,16 @@ func TestLiveTextToSpeech(t *testing.T) {
 	if len(resp.Message.Content) == 0 || !resp.Message.Content[0].IsAudio() {
 		t.Fatalf("content = %#v, want an audio media part", resp.Message.Content)
 	}
-	_, encoded, _ := strings.Cut(resp.Media(), ",")
-	if audio, err := base64.StdEncoding.DecodeString(encoded); err != nil || len(audio) == 0 {
-		t.Errorf("audio payload is not valid base64 data (err=%v)", err)
+	_, encoded, ok := strings.Cut(resp.Media(), ",")
+	if !ok {
+		t.Fatalf("media %q is not a data URL", resp.Media())
+	}
+	audio, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("audio payload is not valid base64: %v", err)
+	}
+	if len(audio) == 0 {
+		t.Error("decoded audio payload is empty")
 	}
 }
 

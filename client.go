@@ -116,8 +116,9 @@ func (a *AzureAIFoundry) foundryClientOptions() ([]option.RequestOption, error) 
 		opts = append(opts, option.WithQuery("api-version", a.APIVersion))
 	}
 	if baseURL.Scheme == "http" {
-		// foundryBaseURL only allows plain HTTP for loopback hosts, which the SDK
-		// additionally enforces for each request.
+		// foundryBaseURL is what restricts plain HTTP to loopback hosts. SDK
+		// releases that reject authenticated plain-HTTP requests (such as v3.70.0, and the
+		// next major per openai-go) need this opt-in; it is a no-op otherwise.
 		opts = append(opts, option.WithUnsafeAllowHTTP())
 	}
 

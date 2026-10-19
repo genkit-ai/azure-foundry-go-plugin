@@ -114,6 +114,10 @@ func (a *AzureAIFoundry) generateImages(ctx context.Context, modelName string, i
 		}
 	}
 
+	if strings.TrimSpace(prompt) == "" {
+		return nil, fmt.Errorf("azureaifoundry: image generation requires a text prompt")
+	}
+
 	// Extract config if provided
 	req := &ImageGenerationRequest{
 		Prompt:         prompt,

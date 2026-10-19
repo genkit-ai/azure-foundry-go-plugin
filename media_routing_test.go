@@ -176,11 +176,13 @@ func TestGenerateImagesAndSpeechRejectEmptyPrompts(t *testing.T) {
 	plugin := testPluginForServer(server)
 	input := &ai.ModelRequest{Messages: []*ai.Message{ai.NewUserTextMessage("  ")}}
 
-	if _, err := plugin.generateImages(context.Background(), "dall-e-3", input); err == nil {
-		t.Error("generateImages() error = nil, want an empty prompt error")
+	if _, err := plugin.generateImages(context.Background(), "dall-e-3", input); err == nil ||
+		!strings.Contains(err.Error(), "requires a text prompt") {
+		t.Errorf("generateImages() error = %v, want an empty prompt error", err)
 	}
-	if _, err := plugin.generateSpeech(context.Background(), "tts-1", input); err == nil {
-		t.Error("generateSpeech() error = nil, want an empty input error")
+	if _, err := plugin.generateSpeech(context.Background(), "tts-1", input); err == nil ||
+		!strings.Contains(err.Error(), "requires input text") {
+		t.Errorf("generateSpeech() error = %v, want an empty input error", err)
 	}
 }
 

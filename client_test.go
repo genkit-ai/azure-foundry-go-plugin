@@ -325,6 +325,12 @@ func (c *countingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return c.base.RoundTrip(req)
 }
 
+func (c *countingTransport) Calls() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.calls
+}
+
 func TestClientOptionsKeepAzureOpenAIDeploymentRouting(t *testing.T) {
 	server, requests := newCaptureServer(t, chatCompletionResponse)
 
@@ -370,19 +376,22 @@ func TestClientOptionsInjectHTTPClient(t *testing.T) {
 
 			generateOnce(t, plugin, "gpt-4o")
 
-			if transport.calls != 1 {
-				t.Errorf("custom transport calls = %d, want 1", transport.calls)
+			if calls := transport.Calls(); calls != 1 {
+				t.Errorf("custom transport calls = %d, want 1", calls)
 			}
 		})
 	}
 }
 
 func TestClientOptionsApplyAfterPluginOptions(t *testing.T) {
+	var mu sync.Mutex
 	var attempts int
 	var header string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		attempts++
 		header = r.Header.Get("X-Request-Source")
+		mu.Unlock()
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer server.Close()
@@ -405,6 +414,8 @@ func TestClientOptionsApplyAfterPluginOptions(t *testing.T) {
 	if err == nil {
 		t.Fatal("generateText() error = nil, want the server error")
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	if attempts != 1 {
 		t.Errorf("attempts = %d, want retries disabled by ClientOptions", attempts)
 	}

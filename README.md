@@ -251,7 +251,7 @@ Pass generation settings with `ai.WithConfig`. JSON-compatible maps,
 | `seed` | number | Best-effort deterministic sampling seed |
 | `presencePenalty` | number | Penalizes tokens that have already appeared |
 | `frequencyPenalty` | number | Penalizes tokens based on repetition frequency |
-| `parallelToolCalls` | boolean | Enables or disables parallel tool calls |
+| `parallelToolCalls` | boolean | Enables or disables parallel tool calls; only sent when tools are provided |
 | `toolChoice` | string | Tool-selection mode (`auto`, `required`, or `none`) or the exact name of a tool to force |
 | `reasoningEffort` | string | Reasoning level: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh` |
 

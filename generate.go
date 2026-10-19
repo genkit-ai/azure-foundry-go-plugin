@@ -300,7 +300,8 @@ func (a *AzureAIFoundry) buildChatCompletionParams(input *ai.ModelRequest, model
 	if config.FrequencyPenalty != nil {
 		params.FrequencyPenalty = openai.Float(*config.FrequencyPenalty)
 	}
-	if config.ParallelToolCalls != nil {
+	// The API rejects parallel_tool_calls unless tools are also sent.
+	if config.ParallelToolCalls != nil && len(input.Tools) > 0 {
 		params.ParallelToolCalls = openai.Bool(*config.ParallelToolCalls)
 	}
 	params.ResponseFormat = responseFormatForOutput(input.Output)

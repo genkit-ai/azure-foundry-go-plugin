@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/firebase/genkit/go/ai"
@@ -354,6 +355,7 @@ func TestBuildChatCompletionParamsMapsRichConfig(t *testing.T) {
 			"frequencyPenalty":  -0.5,
 			"parallelToolCalls": false,
 		},
+		Tools: []*ai.ToolDefinition{{Name: "lookup"}},
 	}, ModelDefinition{Name: "gpt-deployment"})
 	if err != nil {
 		t.Fatalf("buildChatCompletionParams() error = %v", err)
@@ -373,6 +375,23 @@ func TestBuildChatCompletionParamsMapsRichConfig(t *testing.T) {
 	}
 	if !params.ParallelToolCalls.Valid() || params.ParallelToolCalls.Value {
 		t.Fatalf("ParallelToolCalls = %v, want explicit false", params.ParallelToolCalls)
+	}
+}
+
+func TestBuildChatCompletionParamsOmitsParallelToolCallsWithoutTools(t *testing.T) {
+	params, err := (&AzureAIFoundry{}).buildChatCompletionParams(&ai.ModelRequest{
+		Config: map[string]any{"parallelToolCalls": false},
+	}, ModelDefinition{Name: "gpt-deployment"})
+	if err != nil {
+		t.Fatalf("buildChatCompletionParams() error = %v", err)
+	}
+
+	data, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("json.Marshal(params) error = %v", err)
+	}
+	if strings.Contains(string(data), "parallel_tool_calls") {
+		t.Fatalf("payload = %s, want parallel_tool_calls omitted without tools", data)
 	}
 }
 
@@ -587,6 +606,7 @@ func TestBuildChatCompletionParamsSerializesRichConfig(t *testing.T) {
 			"frequencyPenalty":  -0.5,
 			"parallelToolCalls": false,
 		},
+		Tools: []*ai.ToolDefinition{{Name: "lookup"}},
 		Output: &ai.ModelOutputConfig{
 			Format:      ai.OutputFormatJSON,
 			Constrained: true,

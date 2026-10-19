@@ -229,9 +229,12 @@ azurePlugin := &azureaifoundry.AzureAIFoundry{
 }
 ```
 
-Options that change the base URL or authentication replace the plugin's
-configuration, so prefer the plugin's `Endpoint`, `FoundryEndpoint`, `APIKey`,
-and `Credential` fields for those.
+Configure the endpoint and credentials with the plugin's `Endpoint`,
+`FoundryEndpoint`, `APIKey`, and `Credential` fields rather than through
+`ClientOptions`. With `Endpoint`, the SDK rejects every request that combines
+Azure authentication with `option.WithAPIKey`, and `option.WithBaseURL` still
+uses deployment-scoped routing. With `FoundryEndpoint`, such options override
+the plugin's own.
 
 ### Per-call Generation Configuration
 

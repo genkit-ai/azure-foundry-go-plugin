@@ -50,8 +50,9 @@ type AzureAIFoundry struct {
 	// ClientOptions are appended after the options the plugin builds, so they
 	// can customize or override them. Use them for a custom HTTP client or
 	// transport (proxies, custom TLS, test doubles), retry and timeout
-	// behavior, extra headers, or middleware. Options that change the endpoint
-	// or authentication replace the plugin's own configuration.
+	// behavior, extra headers, or middleware. Configure the endpoint and
+	// credentials through the fields above: with Endpoint, the SDK rejects
+	// requests that combine Azure authentication with option.WithAPIKey.
 	ClientOptions []option.RequestOption
 
 	mu      sync.Mutex // Mutex to control access

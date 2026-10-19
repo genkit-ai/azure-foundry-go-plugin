@@ -29,6 +29,7 @@ import (
 	"github.com/firebase/genkit/go/core/api"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
 )
 
 const provider = "azureaifoundry"
@@ -45,6 +46,13 @@ type AzureAIFoundry struct {
 	APIKey          string                 // API key for authentication (required if not using a token credential)
 	APIVersion      string                 // API version. With Endpoint, defaults to "2025-03-01-preview". With FoundryEndpoint, omitted unless set (e.g., "preview")
 	Credential      azcore.TokenCredential // Optional: Microsoft Entra ID credential; DefaultAzureCredential is used when neither APIKey nor Credential is set
+
+	// ClientOptions are appended after the options the plugin builds, so they
+	// can customize or override them. Use them for a custom HTTP client or
+	// transport (proxies, custom TLS, test doubles), retry and timeout
+	// behavior, extra headers, or middleware. Options that change the endpoint
+	// or authentication replace the plugin's own configuration.
+	ClientOptions []option.RequestOption
 
 	mu      sync.Mutex // Mutex to control access
 	client  openai.Client
@@ -69,6 +77,7 @@ func (a *AzureAIFoundry) Init(ctx context.Context) []api.Action {
 	if err != nil {
 		panic("azureaifoundry: " + err.Error())
 	}
+	opts = append(opts, a.ClientOptions...)
 
 	a.client = openai.NewClient(opts...)
 	a.initted = true

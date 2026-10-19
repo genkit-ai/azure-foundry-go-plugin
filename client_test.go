@@ -33,6 +33,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/firebase/genkit/go/ai"
+	"github.com/openai/openai-go/v3/azure"
+	"github.com/openai/openai-go/v3/option"
 )
 
 const chatCompletionResponse = `{"id":"1","object":"chat.completion","choices":[{"index":0,"finish_reason":"stop","message":{"role":"assistant","content":"hello"}}]}`
@@ -47,10 +49,18 @@ type capturedRequest struct {
 }
 
 func newCaptureServer(t *testing.T, response string) (*httptest.Server, func() []capturedRequest) {
+	return newCaptureServerWith(t, httptest.NewServer, response)
+}
+
+func newCaptureServerWith(
+	t *testing.T,
+	start func(http.Handler) *httptest.Server,
+	response string,
+) (*httptest.Server, func() []capturedRequest) {
 	t.Helper()
 	var mu sync.Mutex
 	var requests []capturedRequest
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := start(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		var payload struct {
 			Model string `json:"model"`
@@ -300,4 +310,105 @@ func TestInitPanicsOnInvalidFoundryEndpoint(t *testing.T) {
 		}
 	}()
 	(&AzureAIFoundry{FoundryEndpoint: "http://example.com", APIKey: "k"}).Init(context.Background())
+}
+
+type countingTransport struct {
+	base  http.RoundTripper
+	mu    sync.Mutex
+	calls int
+}
+
+func (c *countingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	c.mu.Lock()
+	c.calls++
+	c.mu.Unlock()
+	return c.base.RoundTrip(req)
+}
+
+func TestClientOptionsKeepAzureOpenAIDeploymentRouting(t *testing.T) {
+	server, requests := newCaptureServer(t, chatCompletionResponse)
+
+	generateOnce(t, &AzureAIFoundry{
+		Endpoint:      server.URL,
+		APIKey:        "azure-key",
+		ClientOptions: []option.RequestOption{azure.WithUnsafeAllowHTTP()},
+	}, "gpt-4o")
+
+	req := requests()[0]
+	if req.path != "/openai/deployments/gpt-4o/chat/completions" {
+		t.Errorf("path = %q, want the deployment-scoped route", req.path)
+	}
+	if req.query != "api-version="+defaultAPIVersion {
+		t.Errorf("query = %q, want the default api-version", req.query)
+	}
+	if req.apiKey != "azure-key" {
+		t.Errorf("Api-Key = %q, want %q", req.apiKey, "azure-key")
+	}
+}
+
+func TestClientOptionsInjectHTTPClient(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		plugin func(url string) *AzureAIFoundry
+	}{
+		{"Endpoint", func(url string) *AzureAIFoundry {
+			return &AzureAIFoundry{Endpoint: url, APIKey: "k"}
+		}},
+		{"FoundryEndpoint", func(url string) *AzureAIFoundry {
+			return &AzureAIFoundry{FoundryEndpoint: url, APIKey: "k"}
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			// Plaintext loopback requests bypass custom transports, so serve TLS
+			// and trust the test server's certificate through the injected client.
+			server, _ := newCaptureServerWith(t, httptest.NewTLSServer, chatCompletionResponse)
+			transport := &countingTransport{base: server.Client().Transport}
+			plugin := tt.plugin(server.URL)
+			plugin.ClientOptions = []option.RequestOption{
+				option.WithHTTPClient(&http.Client{Transport: transport}),
+			}
+
+			generateOnce(t, plugin, "gpt-4o")
+
+			if transport.calls != 1 {
+				t.Errorf("custom transport calls = %d, want 1", transport.calls)
+			}
+		})
+	}
+}
+
+func TestClientOptionsApplyAfterPluginOptions(t *testing.T) {
+	var attempts int
+	var header string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		header = r.Header.Get("X-Request-Source")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	plugin := &AzureAIFoundry{
+		FoundryEndpoint: server.URL,
+		APIKey:          "k",
+		ClientOptions: []option.RequestOption{
+			option.WithMaxRetries(0),
+			option.WithHeader("X-Request-Source", "genkit"),
+		},
+	}
+	plugin.Init(context.Background())
+	_, err := plugin.generateText(
+		context.Background(),
+		ModelDefinition{Name: "gpt-4o", Type: ModelTypeChat},
+		&ai.ModelRequest{Messages: []*ai.Message{ai.NewUserTextMessage("hi")}},
+		nil,
+	)
+	if err == nil {
+		t.Fatal("generateText() error = nil, want the server error")
+	}
+	if attempts != 1 {
+		t.Errorf("attempts = %d, want retries disabled by ClientOptions", attempts)
+	}
+	if header != "genkit" {
+		t.Errorf("X-Request-Source = %q, want %q", header, "genkit")
+	}
 }

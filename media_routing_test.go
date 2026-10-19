@@ -210,7 +210,11 @@ func newTranscriptionServer(t *testing.T, response string, got *transcriptionUpl
 			return
 		}
 		defer func() { _ = file.Close() }()
-		audio, _ := io.ReadAll(file)
+		audio, err := io.ReadAll(file)
+		if err != nil {
+			t.Errorf("read uploaded audio: %v", err)
+			return
+		}
 		*got = transcriptionUpload{
 			model:          r.FormValue("model"),
 			filename:       header.Filename,
@@ -426,10 +430,16 @@ func TestGenerateTextRoutesByModelType(t *testing.T) {
 			var gotPath string
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotPath = r.URL.Path
+				response, ok := responses[r.URL.Path]
+				if !ok {
+					t.Errorf("unexpected request path %q", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
 				if r.URL.Path != "/audio/speech" {
 					w.Header().Set("Content-Type", "application/json")
 				}
-				_, _ = io.WriteString(w, responses[r.URL.Path])
+				_, _ = io.WriteString(w, response)
 			}))
 			defer server.Close()
 

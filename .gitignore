@@ -61,3 +61,4 @@ examples/text_to_speech/output_*.opus
 examples/speech_to_text/speech_to_text
 .genkit/
 node_modules/
+examples/foundry_models/foundry_models

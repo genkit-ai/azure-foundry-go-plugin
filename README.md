@@ -8,6 +8,7 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 	- [Features](#features)
 	- [Supported Models](#supported-models)
 		- [Text Generation Models (with Tool Calling Support)](#text-generation-models-with-tool-calling-support)
+		- [Microsoft Foundry Models](#microsoft-foundry-models)
 	- [Installation](#installation)
 	- [Quick Start](#quick-start)
 		- [Initialize the Plugin](#initialize-the-plugin)
@@ -39,6 +40,7 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 		- [🎙️ Speech-to-Text](#️-speech-to-text)
 	- [Troubleshooting](#troubleshooting)
 		- [Common Issues](#common-issues)
+	- [Testing](#testing)
 	- [Contributing](#contributing)
 	- [License](#license)
 	- [Acknowledgments](#acknowledgments)
@@ -58,6 +60,8 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 - **Multi-turn Conversations**: Full support for chat history and context management
 - **Type Safety**: Robust type conversion and schema validation
 - **Flexible Authentication**: Support for API keys, Azure Default Credential, and custom token credentials
+- **Microsoft Foundry Models**: Reach DeepSeek, Llama, Mistral, Grok, and other Foundry Models through the OpenAI v1 endpoint
+- **Advanced Client Wiring**: Inject a custom HTTP client, retries, timeouts, headers, or middleware
 
 ## Supported Models
 
@@ -72,6 +76,12 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 - **GPT-3.5 Turbo**: Fast and cost-effective model
 
 All GPT-5, GPT-4 and GPT-3.5-turbo models support function calling (tools).
+
+### Microsoft Foundry Models
+
+Models sold by Azure through Microsoft Foundry, such as DeepSeek, Llama,
+Mistral, and Grok, are available with `FoundryEndpoint`. See
+[Microsoft Foundry Models (OpenAI v1 endpoint)](#microsoft-foundry-models-openai-v1-endpoint).
 
 ## Installation
 
@@ -163,7 +173,7 @@ func main() {
 
 	// Generate text
 	response, err := genkit.Generate(ctx, g,
-		ai.WithModel(gpt4Model),
+		ai.WithModel(gpt5Model),
 		ai.WithMessages(ai.NewUserMessage(
 			ai.NewTextPart("Explain quantum computing in simple terms."),
 		)),
@@ -588,6 +598,7 @@ The repository includes comprehensive examples:
 - **`examples/image_generation/`** - Generate images
 - **`examples/text_to_speech/`** - Convert text to speech
 - **`examples/speech_to_text/`** - Transcribe audio to text
+- **`examples/foundry_models/`** - Foundry Models (for example DeepSeek) through the OpenAI v1 endpoint
 
 ### Running Examples
 
@@ -627,6 +638,13 @@ go run main.go
 # Run speech-to-text example (requires audio files)
 cd ../speech_to_text
 go run main.go
+
+# Run Foundry Models example
+export AZURE_FOUNDRY_ENDPOINT="https://your-resource.services.ai.azure.com"
+export AZURE_FOUNDRY_API_KEY="your-api-key"
+export AZURE_FOUNDRY_DEPLOYMENT="DeepSeek-V3.1"
+cd ../foundry_models
+go run main.go
 ```
 
 ## Features in Detail
@@ -647,7 +665,7 @@ weatherTool := genkit.DefineTool(g, "get_weather",
 
 // Use the tool
 response, err := genkit.Generate(ctx, g,
-	ai.WithModel(gpt4Model),
+	ai.WithModel(gpt5Model),
 	ai.WithTools(weatherTool),
 	ai.WithPrompt("What's the weather in San Francisco?"),
 )
@@ -684,7 +702,7 @@ streamCallback := func(ctx context.Context, chunk *ai.ModelResponseChunk) error 
 }
 
 response, err := genkit.Generate(ctx, g,
-	ai.WithModel(gpt4Model),
+	ai.WithModel(gpt5Model),
 	ai.WithPrompt("Tell me a story"),
 	ai.WithStreaming(streamCallback),
 )
@@ -705,7 +723,7 @@ Streaming responses surface the same data as non-streaming ones:
 ```go
 // First message
 response1, _ := genkit.Generate(ctx, g,
-	ai.WithModel(gpt4Model),
+	ai.WithModel(gpt5Model),
 	ai.WithMessages(
 		ai.NewSystemMessage(ai.NewTextPart("You are a helpful assistant.")),
 		ai.NewUserTextMessage("What is Azure?"),
@@ -714,7 +732,7 @@ response1, _ := genkit.Generate(ctx, g,
 
 // Follow-up message with context
 response2, _ := genkit.Generate(ctx, g,
-	ai.WithModel(gpt4Model),
+	ai.WithModel(gpt5Model),
 	ai.WithMessages(
 		ai.NewSystemMessage(ai.NewTextPart("You are a helpful assistant.")),
 		ai.NewUserTextMessage("What is Azure?"),
@@ -891,6 +909,30 @@ log.Printf("Transcription: %s", response.Text())
    - Implement exponential backoff retry logic
    - Consider upgrading to higher rate limits
    - Distribute requests across time
+
+5. **"Deployment not found" or "Model not supported" with Foundry Models**
+   - Use `FoundryEndpoint` (not `Endpoint`) for non-OpenAI models such as DeepSeek or Llama
+   - Use the deployment name from your Foundry resource as `ModelDefinition.Name`
+   - For models outside the OpenAI families, pass an explicit `ai.ModelInfo` to enable tools or media
+
+## Testing
+
+```bash
+# Unit tests (never call Azure)
+go test ./...
+
+# Opt-in live tests against real deployments
+AZURE_LIVE_TEST=1 \
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/" \
+AZURE_OPENAI_API_KEY="your-api-key" \
+AZURE_LIVE_CHAT_DEPLOYMENT="gpt-4o" \
+go test -run TestLive -v .
+```
+
+Each live test is skipped unless its deployment is configured. See
+[CONTRIBUTING.md](CONTRIBUTING.md#live-tests) for the full list of variables
+covering embeddings, image generation, text-to-speech, speech-to-text, and
+Foundry Models.
 
 ## Contributing
 

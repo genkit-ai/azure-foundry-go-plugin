@@ -130,6 +130,40 @@ go test -cover ./...
 go test -race ./...
 ```
 
+### Live Tests
+
+Live tests in `live_test.go` call real Azure deployments. They never run as
+part of the default `go test ./...`: each one is skipped unless
+`AZURE_LIVE_TEST=1` is set and the deployment it exercises is configured.
+
+| Variable | Exercises |
+|----------|-----------|
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource used by the tests below (required) |
+| `AZURE_OPENAI_API_KEY` | Optional; `DefaultAzureCredential` is used when unset |
+| `AZURE_OPENAI_API_VERSION` | Optional API version |
+| `AZURE_LIVE_CHAT_DEPLOYMENT` | Chat sync, streaming, tool calls, and structured output |
+| `AZURE_LIVE_EMBEDDING_DEPLOYMENT` | Embeddings |
+| `AZURE_LIVE_IMAGE_DEPLOYMENT` | Image generation |
+| `AZURE_LIVE_TTS_DEPLOYMENT` | Text-to-speech |
+| `AZURE_LIVE_STT_DEPLOYMENT` | Speech-to-text |
+| `AZURE_FOUNDRY_ENDPOINT` | Microsoft Foundry resource for the Foundry Models test |
+| `AZURE_FOUNDRY_API_KEY` | Optional; `DefaultAzureCredential` is used when unset |
+| `AZURE_LIVE_FOUNDRY_DEPLOYMENT` | Foundry Models chat through the OpenAI v1 route |
+
+```bash
+export AZURE_LIVE_TEST=1
+export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="your-api-key"
+export AZURE_LIVE_CHAT_DEPLOYMENT="gpt-4o"
+export AZURE_LIVE_EMBEDDING_DEPLOYMENT="text-embedding-3-small"
+
+# Run every configured live test
+go test -run TestLive -v .
+
+# Run a single live test
+go test -run TestLiveChatStreaming -v .
+```
+
 ### Test Requirements
 
 - All new code should include appropriate tests

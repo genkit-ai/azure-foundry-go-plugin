@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.9.0...v1.10.0) (2026-10-20)
+
+### 🚀 Features
+
+* add ClientOptions for advanced client wiring ([#103](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/103)) ([9db5822](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/9db5822dbbb3a26eb79717a387289d2816c0d277)), closes [#69](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/69)
+* support Microsoft Foundry Models through the OpenAI v1 endpoint ([#102](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/102)) ([d24dcc2](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/d24dcc28a46ab4ef7ae4d988f7eafb5f4da2ecea)), closes [#69](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/69)
+
+### 📚 Documentation
+
+* refresh README and examples for Foundry Models and client options ([#106](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/106)) ([1f5d6b9](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/1f5d6b9b17380a8459b54a83d112d23ef4b99682)), closes [#69](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/69)
+
+### 🚨 Tests
+
+* add an opt-in live-test matrix ([#105](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/105)) ([7d26054](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/7d260548d662aabe7808bc478ea7b5c1bbbb0f9d)), closes [#69](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/69)
+* expand unit coverage for media, transcription, and routing ([#104](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/104)) ([13a94ce](https://github.com/genkit-ai/azure-foundry-go-plugin/commit/13a94ce4f20c933ce72d971cc055978dd0c9d50b)), closes [#69](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/69) [#69](https://github.com/genkit-ai/azure-foundry-go-plugin/issues/69)
+
 ## [1.9.0](https://github.com/genkit-ai/azure-foundry-go-plugin/compare/v1.8.0...v1.9.0) (2026-07-30)
 
 ### 🚀 Features

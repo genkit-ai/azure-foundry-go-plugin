@@ -14,6 +14,7 @@ A comprehensive Azure AI Foundry plugin for Genkit Go that provides text generat
 		- [Define Models and Generate Text](#define-models-and-generate-text)
 	- [Configuration Options](#configuration-options)
 		- [Available Configuration](#available-configuration)
+		- [Advanced Client Options](#advanced-client-options)
 		- [Per-call Generation Configuration](#per-call-generation-configuration)
 	- [Azure Setup and Authentication](#azure-setup-and-authentication)
 		- [Getting Your Endpoint and API Key](#getting-your-endpoint-and-api-key)
@@ -199,6 +200,41 @@ azurePlugin := &azureaifoundry.AzureAIFoundry{
 | `APIKey` | `string` | "" | API key for authentication |
 | `Credential` | `azcore.TokenCredential` | `nil` | Azure credential (alternative to API key) |
 | `APIVersion` | `string` | `2025-03-01-preview` with `Endpoint`; omitted with `FoundryEndpoint` | API version to use |
+| `ClientOptions` | `[]option.RequestOption` | `nil` | Advanced openai-go request options appended after the plugin's own |
+
+### Advanced Client Options
+
+`ClientOptions` is an escape hatch for advanced client wiring. The options are
+appended after the ones the plugin builds, so they can customize or override
+them:
+
+```go
+import (
+	"net/http"
+	"time"
+
+	"github.com/openai/openai-go/v3/option"
+)
+
+azurePlugin := &azureaifoundry.AzureAIFoundry{
+	Endpoint: os.Getenv("AZURE_OPENAI_ENDPOINT"),
+	APIKey:   os.Getenv("AZURE_OPENAI_API_KEY"),
+	ClientOptions: []option.RequestOption{
+		// Proxy, custom TLS, or a test double
+		option.WithHTTPClient(&http.Client{Transport: myTransport}),
+		option.WithMaxRetries(5),
+		option.WithRequestTimeout(30 * time.Second),
+		option.WithHeader("X-Request-Source", "my-service"),
+	},
+}
+```
+
+Configure the endpoint and credentials with the plugin's `Endpoint`,
+`FoundryEndpoint`, `APIKey`, and `Credential` fields rather than through
+`ClientOptions`. With `Endpoint`, the SDK rejects every request that combines
+Azure authentication with `option.WithAPIKey`, and `option.WithBaseURL` still
+uses deployment-scoped routing. With `FoundryEndpoint`, such options override
+the plugin's own.
 
 ### Per-call Generation Configuration
 

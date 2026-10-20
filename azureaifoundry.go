@@ -22,27 +22,29 @@ package azureaifoundry
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/core/api"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/azure"
-	"github.com/openai/openai-go/v3/option"
 )
 
 const provider = "azureaifoundry"
 
 // AzureAIFoundry provides configuration options for the Azure AI Foundry plugin.
+//
+// Set exactly one of Endpoint or FoundryEndpoint. Endpoint targets an Azure
+// OpenAI resource through deployment-scoped URLs. FoundryEndpoint targets the
+// OpenAI v1 route of a Microsoft Foundry resource, which also serves Foundry
+// Models sold by Azure such as DeepSeek, Llama, Mistral, and Grok.
 type AzureAIFoundry struct {
-	Endpoint   string                 // Azure AI Foundry endpoint URL (required)
-	APIKey     string                 // API key for authentication (required if not using DefaultAzureCredential)
-	APIVersion string                 // Azure OpenAI API version (e.g., "2024-12-01-preview", "2024-02-01"). Defaults to "2024-12-01-preview" if not specified
-	Credential azcore.TokenCredential // Optional: Use Azure DefaultAzureCredential instead of API key
+	Endpoint        string                 // Azure OpenAI resource endpoint URL (e.g., "https://<resource>.openai.azure.com/")
+	FoundryEndpoint string                 // Microsoft Foundry resource endpoint URL (e.g., "https://<resource>.services.ai.azure.com"); requests use its /openai/v1/ route
+	APIKey          string                 // API key for authentication (required if not using a token credential)
+	APIVersion      string                 // API version. With Endpoint, defaults to "2025-03-01-preview". With FoundryEndpoint, omitted unless set (e.g., "preview")
+	Credential      azcore.TokenCredential // Optional: Microsoft Entra ID credential; DefaultAzureCredential is used when neither APIKey nor Credential is set
 
 	mu      sync.Mutex // Mutex to control access
 	client  openai.Client
@@ -63,36 +65,9 @@ func (a *AzureAIFoundry) Init(ctx context.Context) []api.Action {
 		panic("azureaifoundry: Init already called")
 	}
 
-	// Validate required configuration
-	if a.Endpoint == "" {
-		panic("azureaifoundry: Endpoint is required")
-	}
-
-	// Set default API version if not specified
-	apiVersion := a.APIVersion
-	if apiVersion == "" {
-		apiVersion = "2025-03-01-preview"
-	}
-
-	// Create client options using Azure-specific configuration
-	var opts []option.RequestOption
-
-	// Use azure.WithEndpoint which properly handles Azure OpenAI deployment-based URLs
-	opts = append(opts, azure.WithEndpoint(a.Endpoint, apiVersion))
-
-	if a.APIKey != "" {
-		// Use API key authentication
-		opts = append(opts, azure.WithAPIKey(a.APIKey))
-	} else if a.Credential != nil {
-		// Use token credential
-		opts = append(opts, azure.WithTokenCredential(a.Credential))
-	} else {
-		// Try default Azure credential
-		cred, err := azidentity.NewDefaultAzureCredential(nil)
-		if err != nil {
-			panic(fmt.Sprintf("azureaifoundry: failed to create default credential: %v", err))
-		}
-		opts = append(opts, azure.WithTokenCredential(cred))
+	opts, err := a.clientOptions()
+	if err != nil {
+		panic("azureaifoundry: " + err.Error())
 	}
 
 	a.client = openai.NewClient(opts...)

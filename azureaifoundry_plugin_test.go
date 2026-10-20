@@ -295,6 +295,7 @@ func TestInferEmbedderOptions(t *testing.T) {
 			}
 			if opts == nil {
 				t.Fatal("inferEmbedderOptions() = nil, want options")
+				return
 			}
 			if opts.Dimensions != tt.wantDimensions {
 				t.Fatalf("Dimensions = %d, want %d", opts.Dimensions, tt.wantDimensions)

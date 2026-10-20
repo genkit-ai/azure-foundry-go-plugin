@@ -184,6 +184,10 @@ func (a *AzureAIFoundry) generateSpeech(ctx context.Context, modelName string, i
 		}
 	}
 
+	if strings.TrimSpace(text) == "" {
+		return nil, fmt.Errorf("azureaifoundry: speech generation requires input text")
+	}
+
 	// Extract config if provided
 	req := &TTSRequest{
 		Input:          text,
